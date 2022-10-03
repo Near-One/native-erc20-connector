@@ -1,0 +1,3 @@
+[submodule "aurora-locker/lib/forge-std"]
+	path = aurora-locker/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
