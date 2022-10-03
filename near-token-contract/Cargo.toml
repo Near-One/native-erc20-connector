@@ -1,0 +1,39 @@
+[package]
+name = "near-token-contract"
+version = "0.1.0"
+authors = ["Aurora Labs <hello@aurora.dev>"]
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+near-contract-standards = "4.0.0"
+near-sdk = "4.0.0"
+uint = { version = "0.9.3", default-features = false }
+# TODO: Publish and use version from github / crates.io
+aurora-sdk = { path = "../../aurora-contract-sdk/aurora-rust-sdk" }
+near-token-common = { path = "../near-token-common" }
+
+[dev-dependencies]
+anyhow = "1.0"
+borsh = "0.9"
+maplit = "1.0"
+near-units = "0.2.0"
+pkg-config = "0.3.1"
+serde_json = { version = "1.0", features = ["arbitrary_precision"] }
+tokio = { version = "1.18.1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
+workspaces = "0.5.0"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[workspace]
+members = []
