@@ -61,7 +61,7 @@ Methods:
 ## CI
 
 -   code coverage.
--   tests / clippy / rustfmt
+-   tests
 -   binary compilations. Binary must compile.
 -   Make sure that version from all contracts are the same.
 -   Cargo audit + check for unused dependencies.
