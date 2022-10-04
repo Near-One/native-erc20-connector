@@ -9,7 +9,9 @@ use near_contract_standards::fungible_token::metadata::{
 use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
-use near_sdk::{env, near_bindgen, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue};
+use near_sdk::{
+    assert_self, env, near_bindgen, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
+};
 use near_sdk::{require, AccountId, Gas};
 
 mod ext;
@@ -89,31 +91,81 @@ impl Contract {
     /// the total supply since new tokens are minted. This method MUST be
     /// executed only if the predecessor account id is the factory.
     ///
-    /// Emit `FtMint` event.
+    /// Tokens are initially minted to the factory. They are automatically
+    /// transferred to the `receiver_id` using `ft_transfer_call` method.
+    /// In the and `deposit_resolve` is called, where unused tokens are burnt
+    /// to refund the original sender.
+    ///
+    /// Emit FtMint event, FtTransfer event, and potentially FtBurn event (in
+    /// case refund is required).
     pub fn deposit_call(
         &mut self,
         receiver_id: AccountId,
         amount: U128,
         memo: Option<String>,
         msg: String,
-    ) -> PromiseOrValue<U128> {
+    ) -> Promise {
         // Only the factory can deposit tokens
         self.assert_factory();
 
         // Mint tokens for the factory
-        self.token
-            .internal_deposit(&env::predecessor_account_id(), amount.into());
+        self.token.internal_deposit(&self.factory, amount.into());
 
         // Emit minting event
         FtMint {
-            owner_id: &receiver_id,
+            owner_id: &self.factory,
             amount: &amount,
             memo: memo.as_deref(),
         }
         .emit();
 
         // Call the receiver contract
-        self.token.ft_transfer_call(receiver_id, amount, memo, msg)
+        let promise_or_value = self.token.ft_transfer_call(receiver_id, amount, memo, msg);
+
+        // `ft_transfer_call` always returns a promise, so it is safe to unwrap it.
+        unwrap_promise(promise_or_value)
+            .then(Contract::ext(env::current_account_id()).deposit_resolve(amount))
+    }
+
+    /// Callback that is called in the end of `deposit_call` method. All unused tokens
+    /// will be sent back to the original sender in Aurora. Tokens are immediately burnt
+    /// from this contract, and the amount is passed to the factory on the result, which
+    /// is passed to the Aurora Locker contract. The locker contract MUST unlock the
+    /// tokens in the same transactions. This is a callback function that can be only
+    /// executed from the contract itself.
+    ///
+    /// Return the amount of unused tokens. Emit `FtBurn` event if refund amount is non-zero.
+    pub fn deposit_resolve(&mut self, amount: U128, #[callback_unwrap] used_amount: U128) -> U128 {
+        // Only the contract itself can call this method.
+        assert_self();
+
+        if amount != used_amount {
+            let amount: u128 = amount.into();
+            let used_amount = used_amount.into();
+
+            require!(
+                amount > used_amount,
+                "Used amount is greater than the total amount"
+            );
+
+            // Burn the tokens that were minted for the factory.
+            let refund_amount = amount - used_amount;
+            self.token.internal_withdraw(&self.factory, refund_amount);
+
+            // Emit burning event
+            let refund_amount = U128::from(refund_amount);
+            FtBurn {
+                owner_id: &env::predecessor_account_id(),
+                amount: &U128::from(refund_amount),
+                memo: Some("Refund unused tokens from deposit_call"),
+            }
+            .emit();
+
+            refund_amount
+        } else {
+            // If all tokens were used, refund zero tokens.
+            U128::from(0)
+        }
     }
 
     /// Burn tokens owned by the predecessor account id, and unlock the equivalent
@@ -183,6 +235,13 @@ impl Contract {
             env::predecessor_account_id() == self.factory,
             "Only factory can call this method"
         );
+    }
+}
+
+fn unwrap_promise<T>(promise_or_value: PromiseOrValue<T>) -> near_sdk::Promise {
+    match promise_or_value {
+        PromiseOrValue::Promise(promise) => promise,
+        PromiseOrValue::Value(_) => panic!("Expected promise, got value"),
     }
 }
 
