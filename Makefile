@@ -1,6 +1,9 @@
 CARGO = cargo
 RUSTUP = rustup
 
+# https://doc.rust-lang.org/stable/clippy/continuous_integration/index.html#continuous-integration
+export RUSTFLAGS = -Dwarnings
+
 all: near-token-factory near-token-contract
 
 near-token-factory:
