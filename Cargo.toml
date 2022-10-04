@@ -1,0 +1,33 @@
+[workspace]
+members = [
+  "near-token-common",
+  "near-token-contract",
+  "near-token-factory",
+  "tests",
+]
+
+[workspace.metadata.workspaces]
+version = "0.15.0"
+
+[workspace.dependencies]
+# TODO: Publish and use version from github / crates.io
+aurora-sdk = { git = "https://github.com/aurora-is-near/aurora-contracts-sdk.git", rev = "31e874d69d8e53dd4931aa1fbabe42e4bcef5c03" }
+base64 = "0.13.0"
+near-contract-standards = "4.0.0"
+near-sdk = "4.0.0"
+serde = "1"
+uint = { version = "0.9.3", default-features = false }
+
+[workspace.package]
+edition = "2021"
+authors = ["Aurora Labs <hello@aurora.dev>"]
+rust-version = "1.64.0"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
