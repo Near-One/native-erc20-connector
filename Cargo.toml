@@ -11,6 +11,8 @@ version = "0.15.0"
 
 [workspace.dependencies]
 anyhow = "1.0"
+aurora-engine = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
+aurora-engine-types = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
 # TODO: Publish and use version from github / crates.io
 aurora-sdk = { git = "https://github.com/aurora-is-near/aurora-contracts-sdk.git", rev = "31e874d69d8e53dd4931aa1fbabe42e4bcef5c03" }
 base64 = "0.13.0"
