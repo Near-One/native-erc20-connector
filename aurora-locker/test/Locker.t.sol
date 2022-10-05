@@ -11,7 +11,5 @@ contract LockerTest is Test {
         locker = new Locker();
     }
 
-    function testIncrement() public {
-        locker.lock(0);
-    }
+    function testLock() public {}
 }
