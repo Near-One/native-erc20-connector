@@ -156,7 +156,7 @@ impl Contract {
             let refund_amount = U128::from(refund_amount);
             FtBurn {
                 owner_id: &env::predecessor_account_id(),
-                amount: &U128::from(refund_amount),
+                amount: &refund_amount,
                 memo: Some("Refund unused tokens from deposit_call"),
             }
             .emit();
