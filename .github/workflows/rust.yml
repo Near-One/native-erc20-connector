@@ -1,0 +1,15 @@
+name: Aurora Native ERC-20 Connector
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Rust components
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Check
+        run: make check

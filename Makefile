@@ -2,7 +2,10 @@ CARGO = cargo
 RUSTUP = rustup
 FORGE = forge
 
-all: near-token-factory near-token-contract aurora-locker
+# https://doc.rust-lang.org/stable/clippy/continuous_integration/index.html#continuous-integration
+export RUSTFLAGS = -Dwarnings
+
+all: near-token-factory near-token-contract
 
 near-token-factory:
 	$(RUSTUP) target add wasm32-unknown-unknown

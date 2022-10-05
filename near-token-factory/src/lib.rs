@@ -65,9 +65,11 @@ impl Contract {
             "Only locker can deploy contracts"
         );
 
+        let _token_account_id = account_id_from_token_address(token_address);
+
         match self.token_binary.get() {
             None => env::panic_str("Token binary is not set"),
-            Some(binary) => {
+            Some(_binary) => {
                 // TODO: Deploy contract
             }
         }
@@ -80,14 +82,14 @@ impl Contract {
     ///
     /// It is important that this method and the next method don't fail, otherwise this
     /// might result in the loss of tokens (in case the tokens are burnt but not unlocked).
-    pub fn on_withdraw(&mut self, receiver_id: aurora_sdk::Address, amount: u128) {
+    pub fn on_withdraw(&mut self, _receiver_id: aurora_sdk::Address, _amount: u128) {
         // TODO:
     }
 }
 
 /// Convert Aurora address of an ERC-20 to the NEAR account ID NEP-141 representative.
 fn account_id_from_token_address(address: aurora_sdk::Address) -> AccountId {
-    format!("{}.{}", address.to_string(), env::current_account_id())
+    format!("{}.{}", address, env::current_account_id())
         .parse()
         .unwrap()
 }

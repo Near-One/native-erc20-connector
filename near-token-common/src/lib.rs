@@ -12,9 +12,9 @@ impl From<Vec<u8>> for BytesBase64 {
     }
 }
 
-impl Into<Vec<u8>> for BytesBase64 {
-    fn into(self) -> Vec<u8> {
-        self.bytes
+impl From<BytesBase64> for Vec<u8> {
+    fn from(bytes: BytesBase64) -> Self {
+        bytes.bytes
     }
 }
 
