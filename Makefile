@@ -1,5 +1,6 @@
 CARGO = cargo
 RUSTUP = rustup
+FORGE = forge
 
 # https://doc.rust-lang.org/stable/clippy/continuous_integration/index.html#continuous-integration
 export RUSTFLAGS = -Dwarnings
@@ -13,6 +14,9 @@ near-token-factory:
 near-token-contract:
 	$(RUSTUP) target add wasm32-unknown-unknown
 	$(CARGO) build -p near-token-contract --target wasm32-unknown-unknown --release
+
+aurora-locker:
+	cd aurora-locker; $(FORGE) build
 
 check: check-compile check-fmt check-clippy
 
@@ -28,4 +32,4 @@ check-clippy:
 clean:
 	$(CARGO) clean
 
-.PHONY: check clean near-token-factory near-token-contract check-compile check-fmt check-clippy
+.PHONY: check clean near-token-factory near-token-contract aurora-locker check-compile check-fmt check-clippy
