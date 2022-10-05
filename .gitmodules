@@ -4,3 +4,6 @@
 [submodule "aurora-locker/lib/openzeppelin-contracts"]
 	path = aurora-locker/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "aurora-locker/lib/aurora-contracts-sdk"]
+	path = aurora-locker/lib/aurora-contracts-sdk
+	url = https://github.com/aurora-is-near/aurora-contracts-sdk
