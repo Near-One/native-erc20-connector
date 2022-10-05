@@ -1,0 +1,179 @@
+use crate::git_utils::Git;
+use std::{
+    marker::PhantomData,
+    path::{Path, PathBuf},
+};
+use tokio::sync::Mutex;
+
+pub const LATEST_ENGINE_VERSION: &str = "2.7.0";
+const ENGINE_PATH: &str = "../target/aurora-engine";
+/// A lock to prevent multiple tests from modifying the aurora-engine repo at the same time.
+static ENGINE_LOCK: Mutex<()> = Mutex::const_new(());
+
+pub struct AuroraEngineRepo;
+
+pub struct AuroraEngineRepoActions<T> {
+    output_type: PhantomData<T>,
+    actions: Vec<Action>,
+}
+
+#[derive(Debug)]
+pub enum ActionOutput {
+    Unit,
+    Bytes(Vec<u8>),
+}
+
+impl AuroraEngineRepo {
+    pub async fn download_and_compile_latest() -> anyhow::Result<Vec<u8>> {
+        Self::download()
+            .checkout(LATEST_ENGINE_VERSION)
+            .compile_contract()
+            .execute()
+            .await
+    }
+
+    pub fn download() -> AuroraEngineRepoActions<()> {
+        AuroraEngineRepoActions {
+            output_type: Default::default(),
+            actions: vec![Action::Download],
+        }
+    }
+}
+
+impl<T> AuroraEngineRepoActions<T> {
+    pub fn checkout(self, version: &str) -> AuroraEngineRepoActions<()> {
+        let mut current_actions = self.actions;
+        current_actions.push(Action::Checkout {
+            version: version.into(),
+        });
+        AuroraEngineRepoActions {
+            output_type: Default::default(),
+            actions: current_actions,
+        }
+    }
+
+    pub fn compile_contract(self) -> AuroraEngineRepoActions<Vec<u8>> {
+        let mut current_actions = self.actions;
+        current_actions.push(Action::Compile);
+        AuroraEngineRepoActions {
+            output_type: Default::default(),
+            actions: current_actions,
+        }
+    }
+}
+
+impl<T: TryFrom<ActionOutput, Error = anyhow::Error>> AuroraEngineRepoActions<T> {
+    pub async fn execute(self) -> anyhow::Result<T> {
+        let mutex_ref = &ENGINE_LOCK;
+        let _guard = mutex_ref.lock().await;
+        let engine_path = Path::new(ENGINE_PATH);
+        let mut output = ActionOutput::Unit;
+        for action in self.actions {
+            output = action.execute(engine_path).await?;
+        }
+        output.try_into()
+    }
+}
+
+enum Action {
+    Download,
+    Checkout { version: String },
+    Compile,
+}
+
+impl Action {
+    async fn execute(self, engine_path: &Path) -> anyhow::Result<ActionOutput> {
+        match self {
+            Self::Download => {
+                if !engine_path.exists() {
+                    let target_dir = engine_path.parent().unwrap().canonicalize()?;
+                    let git = Git::in_working_dir(target_dir);
+                    git.clone("https://github.com/aurora-is-near/aurora-engine.git")
+                        .await?;
+                }
+                Ok(ActionOutput::Unit)
+            }
+            Self::Checkout { version } => {
+                let git = Git::in_working_dir(engine_path);
+                git.fetch("origin").await?;
+                git.checkout(&version).await?;
+                Ok(ActionOutput::Unit)
+            }
+            Self::Compile => {
+                // For some reason `cargo` does not automatically pick up the toolchain file
+                // in the aurora-engine directory, so we manually read it and set the `RUSTUP_TOOLCHAIN`
+                // environment variable instead.
+                let toolchain = {
+                    let bytes = tokio::fs::read(engine_path.join("rust-toolchain")).await?;
+                    let value: toml::Value = toml::from_slice(&bytes)?;
+                    value
+                        .as_table()
+                        .and_then(|t| t.get("toolchain"))
+                        .and_then(|v| v.as_table())
+                        .and_then(|t| t.get("channel"))
+                        .and_then(|v| v.as_str())
+                        .unwrap()
+                        .to_string()
+                };
+                let output = tokio::process::Command::new("cargo")
+                    .env("RUSTUP_TOOLCHAIN", toolchain)
+                    .current_dir(engine_path)
+                    .args([
+                        "build",
+                        "--target",
+                        "wasm32-unknown-unknown",
+                        "--release",
+                        "--no-default-features",
+                        "--features=mainnet,integration-test",
+                        "-p",
+                        "aurora-engine",
+                        "-Z",
+                        "avoid-dev-deps",
+                    ])
+                    .output()
+                    .await?;
+                crate::git_utils::require_success(output)?;
+                let binary_path = engine_path.join(
+                    [
+                        "target",
+                        "wasm32-unknown-unknown",
+                        "release",
+                        "aurora_engine.wasm",
+                    ]
+                    .iter()
+                    .collect::<PathBuf>(),
+                );
+                let bytes = tokio::fs::read(binary_path).await?;
+                Ok(ActionOutput::Bytes(bytes))
+            }
+        }
+    }
+}
+
+impl TryFrom<ActionOutput> for Vec<u8> {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ActionOutput) -> Result<Self, Self::Error> {
+        match value {
+            ActionOutput::Bytes(bytes) => Ok(bytes),
+            other => Err(anyhow::Error::msg(format!(
+                "Expected Bytes output, got {:?}",
+                other
+            ))),
+        }
+    }
+}
+
+impl TryFrom<ActionOutput> for () {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ActionOutput) -> Result<Self, Self::Error> {
+        match value {
+            ActionOutput::Unit => Ok(()),
+            other => Err(anyhow::Error::msg(format!(
+                "Expected Unit output, got {:?}",
+                other
+            ))),
+        }
+    }
+}
