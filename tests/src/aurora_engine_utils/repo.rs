@@ -115,8 +115,15 @@ impl Action {
                         .unwrap()
                         .to_string()
                 };
+                let output = tokio::process::Command::new("rustup")
+                    .env("RUSTUP_TOOLCHAIN", &toolchain)
+                    .current_dir(engine_path)
+                    .args(["target", "add", "wasm32-unknown-unknown"])
+                    .output()
+                    .await?;
+                crate::git_utils::require_success(output)?;
                 let output = tokio::process::Command::new("cargo")
-                    .env("RUSTUP_TOOLCHAIN", toolchain)
+                    .env("RUSTUP_TOOLCHAIN", &toolchain)
                     .current_dir(engine_path)
                     .args([
                         "build",
