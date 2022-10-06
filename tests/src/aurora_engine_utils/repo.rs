@@ -27,7 +27,7 @@ impl AuroraEngineRepo {
     pub async fn download_and_compile_latest() -> anyhow::Result<Vec<u8>> {
         Self::download()
             .checkout(LATEST_ENGINE_VERSION)
-            .compile_contract()
+            .compile_engine_contract()
             .execute()
             .await
     }
@@ -52,9 +52,18 @@ impl<T> AuroraEngineRepoActions<T> {
         }
     }
 
-    pub fn compile_contract(self) -> AuroraEngineRepoActions<Vec<u8>> {
+    pub fn compile_engine_contract(self) -> AuroraEngineRepoActions<Vec<u8>> {
         let mut current_actions = self.actions;
-        current_actions.push(Action::Compile);
+        current_actions.push(Action::CompileEngine);
+        AuroraEngineRepoActions {
+            output_type: Default::default(),
+            actions: current_actions,
+        }
+    }
+
+    pub fn compile_xcc_router_contract(self) -> AuroraEngineRepoActions<Vec<u8>> {
+        let mut current_actions = self.actions;
+        current_actions.push(Action::CompileXccRouter);
         AuroraEngineRepoActions {
             output_type: Default::default(),
             actions: current_actions,
@@ -78,7 +87,8 @@ impl<T: TryFrom<ActionOutput, Error = anyhow::Error>> AuroraEngineRepoActions<T>
 enum Action {
     Download,
     Checkout { version: String },
-    Compile,
+    CompileEngine,
+    CompileXccRouter,
 }
 
 impl Action {
@@ -99,29 +109,12 @@ impl Action {
                 git.checkout(&version).await?;
                 Ok(ActionOutput::Unit)
             }
-            Self::Compile => {
+            Self::CompileEngine => {
                 // For some reason `cargo` does not automatically pick up the toolchain file
                 // in the aurora-engine directory, so we manually read it and set the `RUSTUP_TOOLCHAIN`
                 // environment variable instead.
-                let toolchain = {
-                    let bytes = tokio::fs::read(engine_path.join("rust-toolchain")).await?;
-                    let value: toml::Value = toml::from_slice(&bytes)?;
-                    value
-                        .as_table()
-                        .and_then(|t| t.get("toolchain"))
-                        .and_then(|v| v.as_table())
-                        .and_then(|t| t.get("channel"))
-                        .and_then(|v| v.as_str())
-                        .unwrap()
-                        .to_string()
-                };
-                let output = tokio::process::Command::new("rustup")
-                    .env("RUSTUP_TOOLCHAIN", &toolchain)
-                    .current_dir(engine_path)
-                    .args(["target", "add", "wasm32-unknown-unknown"])
-                    .output()
-                    .await?;
-                crate::git_utils::require_success(output)?;
+                let toolchain = read_toolchain(engine_path).await?;
+                add_wasm_target(engine_path, &toolchain).await?;
                 let output = tokio::process::Command::new("cargo")
                     .env("RUSTUP_TOOLCHAIN", &toolchain)
                     .current_dir(engine_path)
@@ -153,8 +146,58 @@ impl Action {
                 let bytes = tokio::fs::read(binary_path).await?;
                 Ok(ActionOutput::Bytes(bytes))
             }
+            Self::CompileXccRouter => {
+                let toolchain = read_toolchain(engine_path).await?;
+                add_wasm_target(engine_path, &toolchain).await?;
+                let router_path = engine_path.join("etc").join("xcc-router");
+                let output = tokio::process::Command::new("cargo")
+                    .env("RUSTUP_TOOLCHAIN", &toolchain)
+                    .env("RUSTFLAGS", "-C link-arg=-s")
+                    .current_dir(&router_path)
+                    .args(["build", "--target", "wasm32-unknown-unknown", "--release"])
+                    .output()
+                    .await?;
+                crate::git_utils::require_success(output)?;
+                let binary_path = router_path.join(
+                    [
+                        "target",
+                        "wasm32-unknown-unknown",
+                        "release",
+                        "xcc_router.wasm",
+                    ]
+                    .iter()
+                    .collect::<PathBuf>(),
+                );
+                let bytes = tokio::fs::read(binary_path).await?;
+                Ok(ActionOutput::Bytes(bytes))
+            }
         }
     }
+}
+
+async fn read_toolchain(engine_path: &Path) -> anyhow::Result<String> {
+    let bytes = tokio::fs::read(engine_path.join("rust-toolchain")).await?;
+    let value: toml::Value = toml::from_slice(&bytes)?;
+    let result = value
+        .as_table()
+        .and_then(|t| t.get("toolchain"))
+        .and_then(|v| v.as_table())
+        .and_then(|t| t.get("channel"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::Error::msg("Failed to parse rust-toolchain toml"))?
+        .to_string();
+    Ok(result)
+}
+
+async fn add_wasm_target(engine_path: &Path, toolchain: &str) -> anyhow::Result<()> {
+    let output = tokio::process::Command::new("rustup")
+        .env("RUSTUP_TOOLCHAIN", toolchain)
+        .current_dir(engine_path)
+        .args(["target", "add", "wasm32-unknown-unknown"])
+        .output()
+        .await?;
+    crate::git_utils::require_success(output)?;
+    Ok(())
 }
 
 impl TryFrom<ActionOutput> for Vec<u8> {

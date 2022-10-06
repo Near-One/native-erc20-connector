@@ -70,6 +70,19 @@ impl ERC20 {
             .unwrap();
         ContractInput(data)
     }
+
+    pub fn approve(&self, spender: Address, amount: U256) -> ContractInput {
+        let data = self
+            .abi
+            .function("approve")
+            .unwrap()
+            .encode_input(&[
+                ethabi::Token::Address(spender.raw()),
+                ethabi::Token::Uint(amount),
+            ])
+            .unwrap();
+        ContractInput(data)
+    }
 }
 
 pub trait ERC20DeployedAt {

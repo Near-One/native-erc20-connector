@@ -14,6 +14,7 @@ pub mod repo;
 
 use erc20::ERC20DeployedAt;
 
+const AURORA_ACCOUNT_ID: &str = "a.test.near";
 const TESTNET_CHAIN_ID: u64 = 1313161555;
 const MAX_GAS: u64 = 300_000_000_000_000;
 
@@ -26,13 +27,21 @@ pub struct AuroraEngine {
 
 pub async fn deploy_latest(worker: &Worker<Sandbox>) -> anyhow::Result<AuroraEngine> {
     let wasm = repo::AuroraEngineRepo::download_and_compile_latest().await?;
-    let contract = worker.dev_deploy(&wasm).await?;
+    let (_, sk) = worker.dev_generate().await;
+    // We can't use `dev-deploy` here because then the account ID is too long to create
+    // `{address}.{engine}` sub-accounts.
+    let contract = worker
+        .create_tla_and_deploy(AURORA_ACCOUNT_ID.parse().unwrap(), sk, &wasm)
+        .await?
+        .into_result()?;
     let new_args = aurora_engine::parameters::NewCallArgs {
         chain_id: aurora_engine_types::types::u256_to_arr(&TESTNET_CHAIN_ID.into()),
         owner_id: contract.id().as_ref().parse().unwrap(),
         bridge_prover_id: contract.id().as_ref().parse().unwrap(),
         upgrade_delay_blocks: 0,
     };
+
+    // Initialize main contract
     contract
         .call("new")
         .args_borsh(new_args)
@@ -44,12 +53,29 @@ pub async fn deploy_latest(worker: &Worker<Sandbox>) -> anyhow::Result<AuroraEng
         eth_custodian_address: "0000000000000000000000000000000000000000".into(),
         metadata: Default::default(),
     };
+
+    // Initialize connector
     contract
         .call("new_eth_connector")
         .args_borsh(init_args)
         .transact()
         .await?
         .into_result()?;
+
+    // Initialize xcc router
+    let router_wasm = repo::AuroraEngineRepo::download()
+        .checkout(repo::LATEST_ENGINE_VERSION)
+        .compile_xcc_router_contract()
+        .execute()
+        .await?;
+    contract
+        .call("factory_update")
+        .args(router_wasm)
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
     Ok(AuroraEngine { inner: contract })
 }
 
@@ -150,14 +176,24 @@ impl AuroraEngine {
         input: ContractInput,
         value: Wei,
     ) -> anyhow::Result<SubmitResult> {
+        self.call_evm_contract_with(self.inner.as_account(), address, input, value)
+            .await
+    }
+
+    pub async fn call_evm_contract_with(
+        &self,
+        account: &workspaces::Account,
+        address: Address,
+        input: ContractInput,
+        value: Wei,
+    ) -> anyhow::Result<SubmitResult> {
         let args = CallArgs::V2(FunctionCallArgsV2 {
             contract: address,
             value: value.to_bytes(),
             input: input.0,
         });
-        let outcome = self
-            .inner
-            .call("call")
+        let outcome = account
+            .call(self.inner.id(), "call")
             .args_borsh(args)
             .gas(MAX_GAS)
             .transact()

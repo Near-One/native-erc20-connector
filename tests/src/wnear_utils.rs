@@ -27,6 +27,13 @@ impl Wnear {
 
         // Bridge to Aurora
         let aurora_token = engine.bridge_nep141(contract.id()).await?;
+        engine
+            .inner
+            .call("factory_set_wnear_address")
+            .args(aurora_token.address.as_bytes().to_vec())
+            .transact()
+            .await?
+            .into_result()?;
 
         let result = Self {
             inner: contract,

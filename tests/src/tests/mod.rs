@@ -2,7 +2,13 @@ use crate::{
     aurora_engine_utils::{self, erc20, erc20::ERC20DeployedAt, repo::AuroraEngineRepo},
     wnear_utils::Wnear,
 };
-use aurora_engine_types::types::{Address, Wei};
+use aurora_engine::parameters::{CallArgs, FunctionCallArgsV2, SubmitResult};
+use aurora_engine_precompiles::xcc::cross_contract_call;
+use aurora_engine_types::{
+    parameters::{CrossContractCallArgs, PromiseArgs, PromiseCreateArgs},
+    types::{Address, NearGas, Wei, Yocto},
+};
+use borsh::BorshSerialize;
 
 #[tokio::test]
 async fn test_compile_aurora_engine() {
@@ -68,4 +74,66 @@ async fn test_deploy_wnear() {
         .await
         .unwrap();
     assert_eq!(balance, deposit_amount.into());
+}
+
+#[tokio::test]
+async fn test_engine_xcc() {
+    // Deploy engine, wnear; create user NEAR account
+    let worker = workspaces::sandbox().await.unwrap();
+    let engine = aurora_engine_utils::deploy_latest(&worker).await.unwrap();
+    let wnear = Wnear::deploy(&worker, &engine).await.unwrap();
+    let user = worker.dev_create_account().await.unwrap();
+    let user_address = aurora_engine_sdk::types::near_account_to_evm_address(user.id().as_bytes());
+    // A simple contract with one method `hello`, that logs "HELLO {name}", where `name` is an input string.
+    let hello_contract = {
+        let res = std::path::Path::new("res");
+        let wasm = tokio::fs::read(res.join("hello.wasm")).await.unwrap();
+        worker.dev_deploy(&wasm).await.unwrap()
+    };
+
+    // Give user some WNEAR
+    let deposit_amount = 5_000_000_000_000_000_000_000_000;
+    engine
+        .mint_wnear(&wnear, user_address, deposit_amount)
+        .await
+        .unwrap();
+
+    // User approves XCC precompile to spend their WNEAR
+    let result = engine
+        .call_evm_contract_with(
+            &user,
+            wnear.aurora_token.address,
+            wnear
+                .aurora_token
+                .approve(cross_contract_call::ADDRESS, deposit_amount.into()),
+            Wei::zero(),
+        )
+        .await
+        .unwrap();
+    aurora_engine_utils::unwrap_success(result.status).unwrap();
+
+    // Call XCC precompile to invoke hello contract
+    let promise = PromiseArgs::Create(PromiseCreateArgs {
+        target_account_id: hello_contract.id().as_str().parse().unwrap(),
+        method: "hello".into(),
+        args: r#"{"name": "WORLD!"}"#.as_bytes().to_vec(),
+        attached_balance: Yocto::new(0),
+        attached_gas: NearGas::new(5_000_000_000_000),
+    });
+    let args = CallArgs::V2(FunctionCallArgsV2 {
+        contract: cross_contract_call::ADDRESS,
+        value: [0u8; 32],
+        input: CrossContractCallArgs::Eager(promise).try_to_vec().unwrap(),
+    });
+    let outcome = user
+        .call(engine.inner.id(), "call")
+        .args_borsh(args)
+        .max_gas()
+        .transact()
+        .await
+        .unwrap();
+    // Check the cross-contract call was made by looking at the logs
+    assert!(outcome.logs().contains(&"HELLO WORLD!"));
+    let result: SubmitResult = outcome.borsh().unwrap();
+    aurora_engine_utils::unwrap_success(result.status).unwrap();
 }
