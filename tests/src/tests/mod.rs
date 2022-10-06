@@ -1,8 +1,8 @@
-use crate::aurora_engine_utils::{self, erc20, erc20::ERC20DeployedAt, repo::AuroraEngineRepo};
-use aurora_engine_types::{
-    types::{Address, Wei},
-    U256,
+use crate::{
+    aurora_engine_utils::{self, erc20, erc20::ERC20DeployedAt, repo::AuroraEngineRepo},
+    wnear_utils::Wnear,
 };
+use aurora_engine_types::types::{Address, Wei};
 
 #[tokio::test]
 async fn test_compile_aurora_engine() {
@@ -14,7 +14,8 @@ async fn test_compile_aurora_engine() {
 
 #[tokio::test]
 async fn test_deploy_aurora_engine() {
-    let engine = aurora_engine_utils::deploy_latest().await.unwrap();
+    let worker = workspaces::sandbox().await.unwrap();
+    let engine = aurora_engine_utils::deploy_latest(&worker).await.unwrap();
     let address = Address::decode("000000000000000000000000000000000000000a").unwrap();
     let balance = Wei::new_u64(123456);
     engine.mint_account(address, 0, balance).await.unwrap();
@@ -24,7 +25,8 @@ async fn test_deploy_aurora_engine() {
 
 #[tokio::test]
 async fn test_deploy_erc20() {
-    let engine = aurora_engine_utils::deploy_latest().await.unwrap();
+    let worker = workspaces::sandbox().await.unwrap();
+    let engine = aurora_engine_utils::deploy_latest(&worker).await.unwrap();
     let constructor = erc20::Constructor::load().await.unwrap();
     let address = engine
         .deploy_evm_contract(constructor.deploy_code("TEST", "AAA"))
@@ -38,12 +40,32 @@ async fn test_deploy_erc20() {
         .await
         .unwrap();
     aurora_engine_utils::unwrap_success(result.status).unwrap();
-    let result = engine
-        .view_evm_contract(address, erc20.balance_of(recipient), None, Wei::zero())
+    let balance = engine.erc20_balance_of(&erc20, recipient).await.unwrap();
+    assert_eq!(balance, mint_amount);
+}
+
+#[tokio::test]
+async fn test_deploy_wnear() {
+    let worker = workspaces::sandbox().await.unwrap();
+    let engine = aurora_engine_utils::deploy_latest(&worker).await.unwrap();
+    let wnear = Wnear::deploy(&worker, &engine).await.unwrap();
+
+    // Try bridging some wnear into Aurora
+    let deposit_amount = 100_567;
+    let recipient = Address::decode("000000000000000000000000000000000000000a").unwrap();
+    engine
+        .mint_wnear(&wnear, recipient, deposit_amount)
         .await
         .unwrap();
-    let balance = aurora_engine_utils::unwrap_success(result)
-        .map(|bytes| U256::from_big_endian(&bytes))
+
+    // Aurora Engine account owns the wnear tokens at the NEAR level
+    let balance = wnear.ft_balance_of(engine.inner.id()).await.unwrap();
+    assert_eq!(balance, deposit_amount);
+
+    // Recipient address owns the tokens inside the EVM
+    let balance = engine
+        .erc20_balance_of(&wnear.aurora_token, recipient)
+        .await
         .unwrap();
-    assert_eq!(balance, mint_amount);
+    assert_eq!(balance, deposit_amount.into());
 }

@@ -12,6 +12,7 @@ aurora-engine-transactions.workspace = true
 aurora-engine-types.workspace = true
 ethabi.workspace = true
 hex.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 toml.workspace = true
