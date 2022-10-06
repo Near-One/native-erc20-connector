@@ -18,7 +18,10 @@ near-token-contract:
 aurora-locker:
 	cd aurora-locker; $(FORGE) build
 
-check: check-compile check-fmt check-clippy
+test:
+	$(CARGO) test
+
+check: check-compile check-fmt check-clippy test
 
 check-compile:
 	$(CARGO) check --all-targets
@@ -32,4 +35,4 @@ check-clippy:
 clean:
 	$(CARGO) clean
 
-.PHONY: check clean near-token-factory near-token-contract aurora-locker check-compile check-fmt check-clippy
+.PHONY: check clean near-token-factory near-token-contract aurora-locker check-compile check-fmt check-clippy test

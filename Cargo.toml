@@ -10,13 +10,20 @@ members = [
 version = "0.15.0"
 
 [workspace.dependencies]
+anyhow = "1.0"
+aurora-engine = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
+aurora-engine-types = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
 # TODO: Publish and use version from github / crates.io
 aurora-sdk = { git = "https://github.com/aurora-is-near/aurora-contracts-sdk.git", rev = "31e874d69d8e53dd4931aa1fbabe42e4bcef5c03" }
 base64 = "0.13.0"
+hex = "0.4"
 near-contract-standards = "4.0.0"
 near-sdk = "4.0.0"
 serde = "1"
+tokio = { version = "1.18", features = ["full"] }
+toml = "0.5"
 uint = { version = "0.9.3", default-features = false }
+workspaces = { git = "https://github.com/near/workspaces-rs.git", rev = "8b3356a29f71756d86840679d3ff162b885123c9" }
 
 [workspace.package]
 edition = "2021"

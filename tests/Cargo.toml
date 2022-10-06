@@ -6,3 +6,9 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+anyhow.workspace = true
+aurora-engine.workspace = true
+aurora-engine-types.workspace = true
+workspaces.workspace = true
+tokio.workspace = true
+toml.workspace = true
