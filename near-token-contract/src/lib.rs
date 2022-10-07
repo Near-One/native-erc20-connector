@@ -1,6 +1,3 @@
-// TODO: Pausable methods.
-// TODO: Access Control methods.
-// TODO:    Add super-admin with full-access-key control.
 use ext::ext_near_token_factory;
 use near_contract_standards::fungible_token::events::{FtBurn, FtMint};
 use near_contract_standards::fungible_token::metadata::{
@@ -36,6 +33,9 @@ pub struct Contract {
     metadata: FungibleTokenMetadata,
 }
 
+// TODO: Pausable methods.
+// TODO: Access Control methods.
+// TODO:    Add super-admin with full-access-key control.
 #[near_bindgen]
 impl Contract {
     /// Initializes the contract. This function must be called exactly once

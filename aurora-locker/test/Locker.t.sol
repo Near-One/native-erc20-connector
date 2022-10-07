@@ -8,7 +8,7 @@ contract LockerTest is Test {
     Locker public locker;
 
     function setUp() public {
-        locker = new Locker();
+        locker = new Locker("factory.near");
     }
 
     function testLock() public {}
