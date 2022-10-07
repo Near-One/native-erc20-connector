@@ -137,3 +137,18 @@ async fn test_engine_xcc() {
     let result: SubmitResult = outcome.borsh().unwrap();
     aurora_engine_utils::unwrap_success(result.status).unwrap();
 }
+
+#[tokio::test]
+async fn test_deploy_token_factory() {
+    let worker = workspaces::sandbox().await.unwrap();
+    let engine = aurora_engine_utils::deploy_latest(&worker).await.unwrap();
+    // In reality we would deploy the locker contract and get its address,
+    // but that is not needed for this test. We can choose any address we like.
+    let locker_address = Address::decode("000000000000000000000000000000000000000a").unwrap();
+    let locker_id = format!("{}.{}", locker_address.encode(), engine.inner.id().as_str())
+        .parse()
+        .unwrap();
+    let _factory = crate::token_factory_utils::TokenFactory::deploy(&worker, &locker_id)
+        .await
+        .unwrap();
+}

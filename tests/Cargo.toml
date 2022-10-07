@@ -12,6 +12,7 @@ aurora-engine-precompiles.workspace = true
 aurora-engine-sdk.workspace = true
 aurora-engine-transactions.workspace = true
 aurora-engine-types.workspace = true
+base64.workspace = true
 borsh.workspace = true
 ethabi.workspace = true
 hex.workspace = true
