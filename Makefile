@@ -39,7 +39,7 @@ check-clippy:
 test-solidity:
 	cd aurora-locker; $(FORGE) test -vvv
 
-check-solidity: check-fmt-solidity
+check-solidity: aurora-locker check-fmt-solidity
 
 check-fmt-solidity:
 	cd aurora-locker; $(FORGE) fmt --check

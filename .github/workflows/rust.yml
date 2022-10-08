@@ -3,13 +3,29 @@ name: Aurora Native ERC-20 Connector
 on: [push, pull_request]
 
 jobs:
-  build:
+  rust:
     name: Rust components
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+
       - name: Check
-        run: make check
+        run: make check-rust
+
+  solidity:
+    name: Solidity components
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Foundry
+        uses: onbjerg/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Check
+        run: make check-solidity
