@@ -81,7 +81,7 @@ library AuroraSdk {
         require(index < length, "Index out of bounds");
 
         for (uint256 i = 0; i < index; i++) {
-            borsh.skipBytes();
+            borsh.skipPromiseResult();
         }
 
         return borsh.decodePromiseResult();

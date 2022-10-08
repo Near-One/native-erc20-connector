@@ -79,4 +79,12 @@ library Codec {
             result.output = data.decodeBytes();
         }
     }
+
+    /// Skip promise result from the buffer.
+    function skipPromiseResult(Borsh.Data memory data) public pure {
+        PromiseResultStatus status = PromiseResultStatus(uint8(data.decodeU8()));
+        if (status == PromiseResultStatus.Successful) {
+            data.skipBytes();
+        }
+    }
 }
