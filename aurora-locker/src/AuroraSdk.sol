@@ -5,7 +5,7 @@ import "./Borsh.sol";
 import "./Codec.sol";
 import "./Types.sol";
 import "./Utils.sol";
-import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 // Address of Cross Contract Call precompile in Aurora.
 // It allows scheduling new promises to NEAR contracts.
