@@ -14,7 +14,7 @@ jobs:
           toolchain: stable
 
       - name: Check
-        run: make check-rust
+        run: make check
 
   solidity:
     name: Solidity components
@@ -27,5 +27,14 @@ jobs:
         with:
           version: nightly
 
-      - name: Check
-        run: make check-solidity
+      - name: Pull library deps
+        working-directory: aurora-locker
+        run: forge update
+
+      - name: Run forge tests
+        working-directory: aurora-locker
+        run: forge test
+
+      - name: Run forge fmt
+        working-directory: aurora-locker
+        run: forge fmt --check

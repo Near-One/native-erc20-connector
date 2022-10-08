@@ -15,40 +15,24 @@ near-token-contract:
 	$(RUSTUP) target add wasm32-unknown-unknown
 	$(CARGO) build -p near-token-contract --target wasm32-unknown-unknown --release
 
-aurora-locker: update-solidity
+aurora-locker:
 	cd aurora-locker; $(FORGE) build
 
-check: check-rust check-solidity test
-
-test: test-rust test-solidity
-
-test-rust:
+test:
 	$(CARGO) test
 
-check-rust: check-compile-rust check-fmt-rust check-clippy test-rust
+check: check-compile check-fmt check-clippy test
 
-check-compile-rust:
+check-compile:
 	$(CARGO) check --all-targets
 
-check-fmt-rust:
+check-fmt:
 	$(CARGO) fmt -- --check
 
 check-clippy:
 	$(CARGO) clippy --all-targets
 
-check-solidity: aurora-locker check-fmt-solidity test-solidity
-
-update-solidity:
-	cd aurora-locker; $(FORGE) update
-
-test-solidity: update-solidity
-	cd aurora-locker; $(FORGE) test -vvv
-
-check-fmt-solidity:
-	cd aurora-locker; $(FORGE) fmt --check
-
 clean:
 	$(CARGO) clean
-	cd aurora-locker; $(FORGE) clean
 
-.PHONY: all check clean near-token-factory near-token-contract aurora-locker check test test-rust check-rust check-compile-rust check-fmt-rust check-clippy test-solidity check-solidity check-fmt-solidity update-solidity
+.PHONY: check clean near-token-factory near-token-contract aurora-locker check-compile check-fmt check-clippy test
