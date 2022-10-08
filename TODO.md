@@ -13,6 +13,8 @@ Items separated by repository
 
 ## Aurora Locker
 
+Contract must be upgradable.
+
 Methods:
 
 -   Create token counter part on NEAR

@@ -1,8 +1,6 @@
-// TODO: Add pausable
-// TODO: Add access control
-
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, UnorderedMap};
+use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen, require, AccountId, BorshStorageKey, PanicOnDefault};
 mod ext;
 
@@ -26,6 +24,8 @@ pub struct Contract {
     locker: AccountId,
 }
 
+// TODO: Add pausable
+// TODO: Add access control
 #[near_bindgen]
 impl Contract {
     /// Initializes the contract. The locker account id MUST be the NEAR
@@ -75,6 +75,11 @@ impl Contract {
         }
     }
 
+    // TODO: Use borsh for input serialization
+    pub fn on_deposit(&mut self, _receiver_id: AccountId, _amount: U128) {
+        todo!();
+    }
+
     /// Method invoked by each individual token when an account id calls `withdraw`.
     /// This method is called when tokens are already burned from the token contracts.
     /// The locker in Aurora is called to unlock the equivalent amount of tokens on
@@ -83,7 +88,7 @@ impl Contract {
     /// It is important that this method and the next method don't fail, otherwise this
     /// might result in the loss of tokens (in case the tokens are burnt but not unlocked).
     pub fn on_withdraw(&mut self, _receiver_id: aurora_sdk::Address, _amount: u128) {
-        // TODO:
+        todo!();
     }
 }
 

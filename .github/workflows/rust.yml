@@ -1,15 +1,77 @@
-name: Aurora Native ERC-20 Connector
+name: Rust Contracts
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
 
 jobs:
-  build:
-    name: Rust components
+  tests:
+    name: Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@v1
+        with:
+          cache-on-failure: true
+
+      - name: cargo test
+        run: cargo test --all --all-features
+
+  build:
+    name: Build wasm binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - name: Check
-        run: make check
+
+      - uses: Swatinem/rust-cache@v1
+        with:
+          cache-on-failure: true
+
+      - name: cargo check
+        run: cargo check --all --all-features
+
+      - name: add wasm32-unknown-unknown
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: near-token-factory
+        run: cargo build -p near-token-factory --target wasm32-unknown-unknown --release
+
+      - name: near-token-contract
+        run: cargo build -p near-token-contract --target wasm32-unknown-unknown --release
+
+  lint:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v1
+        with:
+          cache-on-failure: true
+
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --all --all-features -- -D warnings
