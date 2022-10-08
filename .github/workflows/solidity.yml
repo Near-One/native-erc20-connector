@@ -1,4 +1,4 @@
-name: Aurora Native ERC-20 Connector | Solidity Contracts
+name: Solidity Contracts
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build contract
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -37,7 +37,7 @@ jobs:
         run: forge snapshot >> $GITHUB_STEP_SUMMARY
 
   tests:
-    name: Solidity tests
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -58,7 +58,7 @@ jobs:
         run: forge test -vvv
 
   lint:
-    name: Check format
+    name: Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
