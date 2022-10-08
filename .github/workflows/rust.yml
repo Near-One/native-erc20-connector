@@ -28,7 +28,6 @@ jobs:
           version: nightly
 
       - name: Pull library deps
-        working-directory: aurora-locker
         run: forge update
 
       - name: Run forge tests
