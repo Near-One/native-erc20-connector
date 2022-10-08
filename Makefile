@@ -25,7 +25,7 @@ test: test-rust test-solidity
 test-rust:
 	$(CARGO) test
 
-check-rust: check-compile check-fmt check-clippy test-rust
+check-rust: check-compile-rust check-fmt-rust check-clippy test-rust
 
 check-compile-rust:
 	$(CARGO) check --all-targets
@@ -37,7 +37,7 @@ check-clippy:
 	$(CARGO) clippy --all-targets
 
 test-solidity:
-	cd aurora-locker; $(FORGE) test
+	cd aurora-locker; $(FORGE) test -vvv
 
 check-solidity: check-fmt-solidity
 
