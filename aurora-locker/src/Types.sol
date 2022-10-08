@@ -42,7 +42,7 @@ enum ExecutionMode
 /// NEAR transaction.
 {
     Eager,
-    /// Eager mode means that the promise WILL be scheduled for execution
+    /// Lazy mode means that the promise WILL be scheduled for execution
     /// and a separate interaction is required to trigger this execution.
     Lazy
 }
