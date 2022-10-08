@@ -47,13 +47,15 @@ impl Contract {
     /// registered automatically.
     #[init]
     #[payable]
-    pub fn new(metadata: FungibleTokenMetadata) -> Self {
+    pub fn new() -> Self {
+        // TODO: Load metadata automatically during creation.
+
         let factory = env::predecessor_account_id();
 
         let mut contract = Self {
             factory: factory.clone(),
             token: FungibleToken::new(StorageKeys::FungibleToken),
-            metadata,
+            metadata: default_metadata(),
         };
 
         // Automatically register the factory as a minter.
@@ -175,7 +177,7 @@ impl Contract {
     /// Emit `FtBurn` event.
     pub fn withdraw(
         &mut self,
-        receiver_id: aurora_sdk::Address,
+        receiver_id: near_token_common::sdk::Address,
         amount: U128,
         memo: Option<String>,
     ) -> Promise {
@@ -247,3 +249,15 @@ fn unwrap_promise<T>(promise_or_value: PromiseOrValue<T>) -> near_sdk::Promise {
 
 near_contract_standards::impl_fungible_token_core!(Contract, token);
 near_contract_standards::impl_fungible_token_storage!(Contract, token);
+
+fn default_metadata() -> FungibleTokenMetadata {
+    FungibleTokenMetadata {
+        spec: "ft-1.0.0".to_string(),
+        name: "".to_string(),
+        symbol: "".to_string(),
+        icon: None,
+        reference: None,
+        reference_hash: None,
+        decimals: 0,
+    }
+}

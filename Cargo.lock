@@ -237,14 +237,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aurora-sdk"
-version = "0.1.0"
-source = "git+https://github.com/aurora-is-near/aurora-contracts-sdk.git?rev=31e874d69d8e53dd4931aa1fbabe42e4bcef5c03#31e874d69d8e53dd4931aa1fbabe42e4bcef5c03"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "auto_impl"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1908,6 +1900,8 @@ name = "near-token-common"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
+ "hex 0.4.3",
+ "near-sdk",
  "serde",
 ]
 
@@ -1915,7 +1909,6 @@ dependencies = [
 name = "near-token-contract"
 version = "0.1.0"
 dependencies = [
- "aurora-sdk",
  "near-contract-standards",
  "near-sdk",
  "near-token-common",
@@ -1926,7 +1919,6 @@ dependencies = [
 name = "near-token-factory"
 version = "1.0.0"
 dependencies = [
- "aurora-sdk",
  "near-sdk",
  "near-token-common",
  "uint",

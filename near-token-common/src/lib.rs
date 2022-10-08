@@ -1,5 +1,7 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+pub mod sdk;
+
 /// Struct to represent bytes (Vec<u8>) and serialize them as base64-encoded string.
 #[derive(Debug, Clone)]
 pub struct BytesBase64 {

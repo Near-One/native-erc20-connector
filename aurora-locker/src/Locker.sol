@@ -61,7 +61,7 @@ contract Locker {
         PromiseCreateArgs memory mintOnNear = near.call(
             factoryAccountId,
             "on_deposit",
-            abi.encodePacked(bytes(receiverId).encode(), amount.encodeU128()),
+            abi.encodePacked(token, bytes(receiverId).encode(), amount.encodeU128()),
             0,
             ON_DEPOSIT_NEAR_GAS
         );

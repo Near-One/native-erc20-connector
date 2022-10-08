@@ -11,7 +11,6 @@ crate-type = ["cdylib"]
 [dependencies]
 near-sdk.workspace = true
 uint.workspace = true
-aurora-sdk.workspace = true
 near-token-common = { path = "../near-token-common" }
 
 [dev-dependencies]
