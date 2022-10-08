@@ -59,8 +59,7 @@ library AuroraSdk {
 
     /// Compute implicity Aurora Address for the given NEAR account.
     function implicitAuroraAddress(string memory accountId) public pure returns (address) {
-        // TODO: Verify this returns the last 20 bytes
-        return address(bytes20(keccak256(bytes(accountId))));
+        return address(uint160(uint256(keccak256(bytes(accountId)))));
     }
 
     /// Compute the implicit Aurora address of the represenative NEAR account
