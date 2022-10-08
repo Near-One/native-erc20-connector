@@ -18,21 +18,34 @@ near-token-contract:
 aurora-locker:
 	cd aurora-locker; $(FORGE) build
 
-test:
+check: check-rust check-solidity test
+
+test: test-rust test-solidity
+
+test-rust:
 	$(CARGO) test
 
-check: check-compile check-fmt check-clippy test
+check-rust: check-compile check-fmt check-clippy test-rust
 
-check-compile:
+check-compile-rust:
 	$(CARGO) check --all-targets
 
-check-fmt:
+check-fmt-rust:
 	$(CARGO) fmt -- --check
 
 check-clippy:
 	$(CARGO) clippy --all-targets
 
+test-solidity:
+	cd aurora-locker; $(FORGE) test
+
+check-solidity: check-fmt-solidity
+
+check-fmt-solidity:
+	cd aurora-locker; $(FORGE) fmt --check
+
 clean:
 	$(CARGO) clean
+	cd aurora-locker; $(FORGE) clean
 
-.PHONY: check clean near-token-factory near-token-contract aurora-locker check-compile check-fmt check-clippy test
+.PHONY: all check clean near-token-factory near-token-contract aurora-locker check test test-rust check-rust check-compile-rust check-fmt-rust check-clippy test-solidity check-solidity check-fmt-solidity

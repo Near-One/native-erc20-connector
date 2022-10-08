@@ -25,18 +25,11 @@ library Borsh {
     // This function assumes that length is reasonably small, so that data.ptr + length will not overflow. In the current code, length is always less than 2^32.
     function requireSpace(Data memory data, uint256 length) internal pure {
         unchecked {
-            require(
-                data.ptr + length <= data.end,
-                "Parse error: unexpected EOI"
-            );
+            require(data.ptr + length <= data.end, "Parse error: unexpected EOI");
         }
     }
 
-    function read(Data memory data, uint256 length)
-        internal
-        pure
-        returns (bytes32 res)
-    {
+    function read(Data memory data, uint256 length) internal pure returns (bytes32 res) {
         data.requireSpace(length);
         res = bytes32(Utils.readMemory(data.ptr));
         unchecked {
@@ -50,21 +43,13 @@ library Borsh {
     }
 
     // Same considerations as for requireSpace.
-    function peekKeccak256(Data memory data, uint256 length)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function peekKeccak256(Data memory data, uint256 length) internal pure returns (bytes32) {
         data.requireSpace(length);
         return Utils.keccak256Raw(data.ptr, length);
     }
 
     // Same considerations as for requireSpace.
-    function peekSha256(Data memory data, uint256 length)
-        internal
-        view
-        returns (bytes32)
-    {
+    function peekSha256(Data memory data, uint256 length) internal view returns (bytes32) {
         data.requireSpace(length);
         return Utils.sha256Raw(data.ptr, length);
     }
@@ -115,11 +100,7 @@ library Borsh {
         }
     }
 
-    function decodeBytes(Data memory data)
-        internal
-        pure
-        returns (bytes memory res)
-    {
+    function decodeBytes(Data memory data) internal pure returns (bytes memory res) {
         uint256 length = data.decodeU32();
         data.requireSpace(length);
         res = Utils.memoryToBytes(data.ptr, length);

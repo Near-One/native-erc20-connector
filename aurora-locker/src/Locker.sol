@@ -38,12 +38,9 @@ contract Locker {
 
     constructor(string memory factoryAccountId_) {
         factoryAccountId = factoryAccountId_;
-        factoryImplicitAddress = AuroraSdk.implicitAuroraAddress(
-            factoryAccountId
-        );
+        factoryImplicitAddress = AuroraSdk.implicitAuroraAddress(factoryAccountId);
         near = AuroraSdk.mainnet();
-        selfReprsentativeImplicitAddress = AuroraSdk
-            .nearRepresentitiveImplicitAddress(address(this));
+        selfReprsentativeImplicitAddress = AuroraSdk.nearRepresentitiveImplicitAddress(address(this));
     }
 
     /// ERC20 tokens are locked in this contract, while the equivalent
@@ -55,11 +52,7 @@ contract Locker {
     ///
     /// If the transaction fails, the tokens are automatically returned to
     /// the sender of the transaction.
-    function deposit(
-        IERC20 token,
-        string memory receiverId,
-        uint128 amount
-    ) public {
+    function deposit(IERC20 token, string memory receiverId, uint128 amount) public {
         // First transfer the tokens from the caller to the locker contract.
         token.transferFrom(msg.sender, address(this), amount);
 
@@ -77,12 +70,7 @@ contract Locker {
         // the factory fails.
         PromiseCreateArgs memory callback = near.auroraCall(
             address(this),
-            abi.encodeWithSelector(
-                this.depositCallback.selector,
-                token,
-                msg.sender,
-                amount
-            ),
+            abi.encodeWithSelector(this.depositCallback.selector, token, msg.sender, amount),
             0,
             DEPOSIT_CALLBACK_NEAR_GAS
         );
@@ -94,24 +82,14 @@ contract Locker {
     /// Callback to return tokens to the sender if the call to the factory
     /// fails. This method can only be called by the representative NEAR
     /// account of this contract.
-    function depositCallback(
-        IERC20 token,
-        address sender,
-        uint128 amount
-    ) public {
+    function depositCallback(IERC20 token, address sender, uint128 amount) public {
         // Only the representative NEAR account of this contract can call this
         // method.
-        require(
-            msg.sender == selfReprsentativeImplicitAddress,
-            "ERR_ACCESS_DENIED"
-        );
+        require(msg.sender == selfReprsentativeImplicitAddress, "ERR_ACCESS_DENIED");
 
         // Transaction to mint tokens failed, so we need to return the tokens
         // to the sender.
-        if (
-            !(AuroraSdk.promiseResult(0).status ==
-                PromiseResultStatus.Successful)
-        ) {
+        if (!(AuroraSdk.promiseResult(0).status == PromiseResultStatus.Successful)) {
             token.transfer(sender, amount);
         }
     }
@@ -123,11 +101,7 @@ contract Locker {
     /// It is important that this function MUST never fail. In particular the
     /// amount to be withdrawn WILL be owned by the contract, since it was
     /// deposited before during a transfer.
-    function withdraw(
-        IERC20 token,
-        address receiver,
-        uint256 amount
-    ) public {
+    function withdraw(IERC20 token, address receiver, uint256 amount) public {
         // Only the factory contract can call this method.
         require(msg.sender == factoryImplicitAddress, "ERR_ACCESS_DENIED");
 

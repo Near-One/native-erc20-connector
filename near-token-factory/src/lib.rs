@@ -76,7 +76,7 @@ impl Contract {
     }
 
     // TODO: Use borsh for input serialization
-    pub fn on_deposit(&mut self, receiver_id: AccountId, amount: U128) {
+    pub fn on_deposit(&mut self, _receiver_id: AccountId, _amount: U128) {
         todo!();
     }
 

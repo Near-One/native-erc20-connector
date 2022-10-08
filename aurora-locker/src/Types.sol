@@ -16,8 +16,9 @@ struct PromiseCreateArgs {
     uint64 nearGas;
 }
 
-enum PromiseArgsVariant {
-    /// Basic NEAR promise
+enum PromiseArgsVariant
+/// Basic NEAR promise
+{
     Create,
     /// NEAR promise with a callback attached.
     Callback,
@@ -36,9 +37,10 @@ struct PromiseWithCallback {
     PromiseCreateArgs callback;
 }
 
-enum ExecutionMode {
-    /// Eager mode means that the promise WILL be executed in a single
-    /// NEAR transaction.
+enum ExecutionMode
+/// Eager mode means that the promise WILL be executed in a single
+/// NEAR transaction.
+{
     Eager,
     /// Eager mode means that the promise WILL be scheduled for execution
     /// and a separate interaction is required to trigger this execution.
@@ -50,8 +52,9 @@ struct CrossContractCallArgs {
     string contractId;
 }
 
-enum PromiseResultStatus {
-    /// This status should not be reachable.
+enum PromiseResultStatus
+/// This status should not be reachable.
+{
     NotReady,
     /// The promise was executed successfully.
     Successful,

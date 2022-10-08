@@ -49,26 +49,12 @@ library AuroraSdk {
 
     /// Compute NEAR represtentative account for the given Aurora address.
     /// This is the NEAR account created by the cross contract call precompile.
-    function nearRepresentative(address account)
-        public
-        returns (string memory)
-    {
-        return
-            string(
-                abi.encodePacked(
-                    Utils.bytesToHex(abi.encodePacked((bytes20(account)))),
-                    ".",
-                    currentAccountId()
-                )
-            );
+    function nearRepresentative(address account) public returns (string memory) {
+        return string(abi.encodePacked(Utils.bytesToHex(abi.encodePacked((bytes20(account)))), ".", currentAccountId()));
     }
 
     /// Compute implicity Aurora Address for the given NEAR account.
-    function implicitAuroraAddress(string memory accountId)
-        public
-        pure
-        returns (address)
-    {
+    function implicitAuroraAddress(string memory accountId) public pure returns (address) {
         // TODO: Verify this returns the last 20 bytes
         return address(bytes20(keccak256(bytes(accountId))));
     }
@@ -76,20 +62,13 @@ library AuroraSdk {
     /// Compute the implicit Aurora address of the represenative NEAR account
     /// for the given Aurora address. Useful when a contract wants to call
     /// itself via a callback using cross contract call precompile.
-    function nearRepresentitiveImplicitAddress(address account)
-        public
-        returns (address)
-    {
+    function nearRepresentitiveImplicitAddress(address account) public returns (address) {
         return implicitAuroraAddress(nearRepresentative(account));
     }
 
     /// Get the promise result at the specified index.
-    function promiseResult(uint256 index)
-        public
-        returns (PromiseResult memory)
-    {
-        (bool success, bytes memory returnData) = CURRENT_ACCOUNT_ID_PRECOMPILE
-            .call("");
+    function promiseResult(uint256 index) public returns (PromiseResult memory) {
+        (bool success, bytes memory returnData) = CURRENT_ACCOUNT_ID_PRECOMPILE.call("");
         require(success);
 
         Borsh.Data memory borsh = Borsh.from(returnData);
@@ -106,18 +85,14 @@ library AuroraSdk {
 
     /// Get the NEAR account id of the current contract. It is the account id of Aurora engine.
     function currentAccountId() public returns (string memory) {
-        (bool success, bytes memory returnData) = CURRENT_ACCOUNT_ID_PRECOMPILE
-            .call("");
+        (bool success, bytes memory returnData) = CURRENT_ACCOUNT_ID_PRECOMPILE.call("");
         require(success);
         return string(returnData);
     }
 
     /// Get the NEAR account id of the predecessor contract.
     function predecessorAccountId() public returns (string memory) {
-        (
-            bool success,
-            bytes memory returnData
-        ) = PREDECESSOR_ACCOUNT_ID_PRECOMPILE.call("");
+        (bool success, bytes memory returnData) = PREDECESSOR_ACCOUNT_ID_PRECOMPILE.call("");
         require(success);
         return string(returnData);
     }
@@ -144,49 +119,33 @@ library AuroraSdk {
         }
 
         if (nearBalance > 0) {
-            near.wNEAR.transferFrom(
-                msg.sender,
-                address(this),
-                uint256(nearBalance)
-            );
+            near.wNEAR.transferFrom(msg.sender, address(this), uint256(nearBalance));
         }
 
-        return
-            PromiseCreateArgs(
-                targetAccountId,
-                method,
-                args,
-                nearBalance,
-                nearGas
-            );
+        return PromiseCreateArgs(targetAccountId, method, args, nearBalance, nearGas);
     }
 
     /// Similar to `call`. It is a wrapper that simplifies the creation of a promise
     /// to a controct inside `Aurora`.
-    function auroraCall(
-        NEAR memory near,
-        address target,
-        bytes memory args,
-        uint128 nearBalance,
-        uint64 nearGas
-    ) public returns (PromiseCreateArgs memory) {
-        return
-            call(
-                near,
-                currentAccountId(),
-                "call",
-                abi.encodePacked(uint8(0), target, uint256(0), args.encode()),
-                nearBalance,
-                nearGas
-            );
+    function auroraCall(NEAR memory near, address target, bytes memory args, uint128 nearBalance, uint64 nearGas)
+        public
+        returns (PromiseCreateArgs memory)
+    {
+        return call(
+            near,
+            currentAccountId(),
+            "call",
+            abi.encodePacked(uint8(0), target, uint256(0), args.encode()),
+            nearBalance,
+            nearGas
+        );
     }
 
     /// Schedule a base promise to be executed on NEAR. After this function is called
     /// the promise should not be used anymore.
     function transact(PromiseCreateArgs memory nearPromise) public {
-        (bool success, bytes memory returnData) = XCC_PRECOMPILE.call(
-            nearPromise.encodeCrossContractCallArgs(ExecutionMode.Eager)
-        );
+        (bool success, bytes memory returnData) =
+            XCC_PRECOMPILE.call(nearPromise.encodeCrossContractCallArgs(ExecutionMode.Eager));
 
         if (!success) {
             revert(string(returnData));
@@ -199,9 +158,8 @@ library AuroraSdk {
     /// Duplicated due to lack of generics in solidity. Check relevant issue:
     /// https://github.com/ethereum/solidity/issues/869
     function transact(PromiseWithCallback memory nearPromise) public {
-        (bool success, bytes memory returnData) = XCC_PRECOMPILE.call(
-            nearPromise.encodeCrossContractCallArgs(ExecutionMode.Eager)
-        );
+        (bool success, bytes memory returnData) =
+            XCC_PRECOMPILE.call(nearPromise.encodeCrossContractCallArgs(ExecutionMode.Eager));
 
         if (!success) {
             revert(string(returnData));
@@ -209,10 +167,11 @@ library AuroraSdk {
     }
 
     /// Create a promise with callback from two given promises.
-    function then(
-        PromiseCreateArgs memory base,
-        PromiseCreateArgs memory callback
-    ) public pure returns (PromiseWithCallback memory) {
+    function then(PromiseCreateArgs memory base, PromiseCreateArgs memory callback)
+        public
+        pure
+        returns (PromiseWithCallback memory)
+    {
         return PromiseWithCallback(base, callback);
     }
 }
