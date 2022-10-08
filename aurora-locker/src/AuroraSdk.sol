@@ -30,8 +30,6 @@ struct NEAR {
     /// Address of wNEAR token contract. It is used to charge the user
     /// required tokens for paying NEAR storage fees and attached balance
     /// for cross contract calls.
-    ///
-    /// On mainnet wNEAR address is: 0x4861825E75ab14553E5aF711EbbE6873d369d146
     IERC20 wNEAR;
 }
 
@@ -41,6 +39,12 @@ library AuroraSdk {
     using Codec for PromiseWithCallback;
     using Codec for Borsh.Data;
     using Borsh for Borsh.Data;
+
+    /// Create an instance of NEAR object. Requires the address at which
+    /// wNEAR ERC20 token contract is deployed.
+    function initNear(IERC20 wNEAR) public pure returns (NEAR memory) {
+        return NEAR(false, wNEAR);
+    }
 
     /// Default configuration for mainnet.
     function mainnet() public pure returns (NEAR memory) {

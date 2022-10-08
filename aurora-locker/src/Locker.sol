@@ -36,10 +36,10 @@ contract Locker {
     /// Implicit address for representative NEAR account of this contract.
     address public immutable selfReprsentativeImplicitAddress;
 
-    constructor(string memory factoryAccountId_) {
+    constructor(string memory factoryAccountId_, IERC20 wNEAR) {
         factoryAccountId = factoryAccountId_;
         factoryImplicitAddress = AuroraSdk.implicitAuroraAddress(factoryAccountId);
-        near = AuroraSdk.mainnet();
+        near = AuroraSdk.initNear(wNEAR);
         selfReprsentativeImplicitAddress = AuroraSdk.nearRepresentitiveImplicitAddress(address(this));
     }
 
