@@ -47,11 +47,6 @@ enum ExecutionMode
     Lazy
 }
 
-struct CrossContractCallArgs {
-    ExecutionMode mode;
-    string contractId;
-}
-
 enum PromiseResultStatus
 /// This status should not be reachable.
 {
