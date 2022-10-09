@@ -177,7 +177,7 @@ impl Contract {
     /// Emit `FtBurn` event.
     pub fn withdraw(
         &mut self,
-        receiver_id: near_token_common::sdk::Address,
+        receiver_id: near_token_common::Address,
         amount: U128,
         memo: Option<String>,
     ) -> Promise {
@@ -195,15 +195,12 @@ impl Contract {
 
         ext_near_token_factory::ext(self.factory.clone())
             .with_static_gas(GAS_FOR_ON_WITHDRAW)
-            .on_withdraw(receiver_id, amount.into())
+            .on_withdraw(receiver_id, amount)
     }
 
-    // TODO: Evaluate gas difference between using BytesBase64 vs Borsh
-    //       If bytes64 is acceptable we should use it, since it is more
-    //       human friendly.
     /// Upgrade the contract to a newer version. This method MUST be
     /// executed only if the predecessor account id is the factory.
-    pub fn upgrade_contract(&mut self, binary: near_token_common::BytesBase64) -> Promise {
+    pub fn upgrade_contract(&mut self, binary: near_sdk::json_types::Base64VecU8) -> Promise {
         // Only the factory can upgrade the contract
         self.assert_factory();
 
@@ -215,11 +212,14 @@ impl Contract {
     /// role can call this method. In particular it is expected that the factory
     /// has this role. This allows a trustless workflow where metadata can be
     /// updated by any user starting the call from the locker in Aurora.
+    ///
+    ///
     pub fn update_metadata(&mut self, metadata: FungibleTokenMetadata) {
         // TODO: Make sure accounts with the proper role can call this function.
-
+        // TODO: Allow updating parts of the metadata, and not require update the whole struct at once.
         // Update the metadata with the new information.
         self.metadata = metadata;
+        todo!();
     }
 }
 

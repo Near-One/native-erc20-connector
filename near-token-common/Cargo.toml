@@ -9,4 +9,4 @@ rust-version.workspace = true
 base64.workspace = true
 serde.workspace = true
 near-sdk.workspace = true
-hex = "0.4.3"
+hex.workspace = true

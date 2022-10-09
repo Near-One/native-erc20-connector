@@ -14,7 +14,6 @@ anyhow = "1.0"
 aurora-engine = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
 aurora-engine-transactions = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
 aurora-engine-types = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
-# TODO: Publish and use version from github / crates.io
 base64 = "0.13.0"
 ethabi = "17.2"
 hex = "0.4"

@@ -1919,6 +1919,8 @@ dependencies = [
 name = "near-token-factory"
 version = "1.0.0"
 dependencies = [
+ "ethabi",
+ "hex 0.4.3",
  "near-sdk",
  "near-token-common",
  "uint",
