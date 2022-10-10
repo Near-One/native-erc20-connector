@@ -1,3 +1,4 @@
+use aurora_engine_types::types::Address;
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
 use workspaces::{network::Sandbox, Worker};
@@ -12,7 +13,8 @@ pub struct TokenFactory {
 impl TokenFactory {
     pub async fn deploy(
         worker: &Worker<Sandbox>,
-        locker: &workspaces::AccountId,
+        locker: Address,
+        engine: &workspaces::AccountId,
     ) -> anyhow::Result<Self> {
         // Compile and deploy factory contract
         let wasm = Self::compile_factory().await?;
@@ -28,7 +30,8 @@ impl TokenFactory {
         contract
             .call("new")
             .args_json(serde_json::json!({
-                "locker": locker,
+                "locker": locker.encode(),
+                "aurora": engine,
             }))
             .max_gas()
             .transact()
