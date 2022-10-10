@@ -4,7 +4,7 @@ use tokio::process::Command;
 use workspaces::{network::Sandbox, Worker};
 
 const ROOT_PATH: &str = "..";
-const FACTORY_ACCOUNT_ID: &str = "f.test.near";
+pub const FACTORY_ACCOUNT_ID: &str = "f.test.near";
 
 pub struct TokenFactory {
     pub inner: workspaces::Contract,
