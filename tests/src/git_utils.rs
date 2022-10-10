@@ -1,8 +1,5 @@
-use std::{
-    io,
-    path::{Path, PathBuf},
-    process::Output,
-};
+use crate::process_utils;
+use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
 #[derive(Debug, Clone)]
@@ -25,19 +22,19 @@ impl Git {
 
     pub async fn clone(&self, url: &str) -> anyhow::Result<()> {
         let output = self.git_command().args(["clone", url]).output().await?;
-        require_success(output)?;
+        process_utils::require_success(output)?;
         Ok(())
     }
 
     pub async fn checkout(&self, tag: &str) -> anyhow::Result<()> {
         let output = self.git_command().args(["checkout", tag]).output().await?;
-        require_success(output)?;
+        process_utils::require_success(output)?;
         Ok(())
     }
 
     pub async fn fetch(&self, remote: &str) -> anyhow::Result<()> {
         let output = self.git_command().args(["fetch", remote]).output().await?;
-        require_success(output)?;
+        process_utils::require_success(output)?;
         Ok(())
     }
 
@@ -51,16 +48,5 @@ impl Git {
 impl Default for Git {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-pub fn require_success(output: Output) -> Result<(), io::Error> {
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("Command failed: {:?}", output),
-        ))
     }
 }

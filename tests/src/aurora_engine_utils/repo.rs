@@ -132,7 +132,7 @@ impl Action {
                     ])
                     .output()
                     .await?;
-                crate::git_utils::require_success(output)?;
+                crate::process_utils::require_success(output)?;
                 let binary_path = engine_path.join(
                     [
                         "target",
@@ -157,7 +157,7 @@ impl Action {
                     .args(["build", "--target", "wasm32-unknown-unknown", "--release"])
                     .output()
                     .await?;
-                crate::git_utils::require_success(output)?;
+                crate::process_utils::require_success(output)?;
                 let binary_path = router_path.join(
                     [
                         "target",
@@ -196,7 +196,7 @@ async fn add_wasm_target(engine_path: &Path, toolchain: &str) -> anyhow::Result<
         .args(["target", "add", "wasm32-unknown-unknown"])
         .output()
         .await?;
-    crate::git_utils::require_success(output)?;
+    crate::process_utils::require_success(output)?;
     Ok(())
 }
 

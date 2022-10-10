@@ -230,6 +230,7 @@ dependencies = [
  "aurora-engine-sdk",
  "aurora-engine-transactions",
  "aurora-engine-types",
+ "base64 0.13.0",
  "borsh",
  "ethabi",
  "hex 0.4.3",
