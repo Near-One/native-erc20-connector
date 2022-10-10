@@ -6,9 +6,9 @@ use near_sdk::{
 use near_token_common as aurora_sdk;
 mod ext;
 
-const TOKEN_STORAGE_DEPOSIT_COST: Balance = 1_000_000_000_000_000_000;
+const TOKEN_STORAGE_DEPOSIT_COST: Balance = 1_250_000_000_000_000_000_000;
 const TOKEN_DEPLOYMENT_COST: Gas = Gas(5_000_000_000_000);
-const DEPOSIT_COST: Gas = Gas(2_000_000_000_000);
+const DEPOSIT_COST: Gas = Gas(5_000_000_000_000);
 
 const ERR_ONLY_LOCKER: &str = "ERR_ONLY_LOCKER: Only locker can call this method.";
 const ERR_INVALID_ACCOUNT: &str =
@@ -124,6 +124,7 @@ impl Contract {
             // batched transaction.
             Promise::new(token_account_id)
                 .create_account()
+                .transfer(3_000_000_000_000_000_000_000_000) // TODO: cost for storage should be covered by user?
                 .deploy_contract(binary)
                 .function_call(
                     "new".to_string(),
@@ -135,11 +136,12 @@ impl Contract {
                     "deposit".to_string(),
                     near_sdk::serde_json::json!({
                         "receiver_id": receiver_id,
-                        "amount": amount,
+                        "amount": amount.to_string(),
                     })
                     .to_string()
                     .into_bytes(),
-                    0,
+                    // TODO: auto-register user for new tokens?
+                    TOKEN_STORAGE_DEPOSIT_COST,
                     DEPOSIT_COST,
                 )
         } else {
@@ -170,7 +172,7 @@ impl Contract {
         let input = abi_encode_withdraw(&token_id, &receiver_id, amount.into());
 
         aurora_sdk::aurora::ext_aurora::ext(self.aurora.clone())
-            .call(aurora_sdk::aurora::call_args(token_id, input))
+            .call(aurora_sdk::aurora::call_args(self.locker.clone(), input))
     }
 
     /// Representative account id of the locker in Aurora.

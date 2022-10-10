@@ -89,8 +89,11 @@ pub trait ERC20DeployedAt {
     fn deployed_at(self, address: Address) -> ERC20;
 }
 
-impl ERC20DeployedAt for ethabi::Contract {
+impl ERC20DeployedAt for Constructor {
     fn deployed_at(self, address: Address) -> ERC20 {
-        ERC20 { abi: self, address }
+        ERC20 {
+            abi: self.abi,
+            address,
+        }
     }
 }

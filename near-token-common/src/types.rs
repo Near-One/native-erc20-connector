@@ -60,7 +60,7 @@ mod address_serde_hex {
 
 impl Display for Address {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "0x{}", hex::encode(&self.0))
+        write!(f, "{}", hex::encode(&self.0))
     }
 }
 
