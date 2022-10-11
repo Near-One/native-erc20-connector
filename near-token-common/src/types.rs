@@ -34,7 +34,29 @@ impl From<CallArgs> for FunctionCallArgs {
 pub type WeiU256 = [u8; 32];
 
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize, Debug, Clone)]
-pub struct Address(pub [u8; 20]);
+pub struct Address(#[serde(with = "address_serde_hex")] pub [u8; 20]);
+
+mod address_serde_hex {
+    use serde::{de::Error, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(input: &[u8], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&hex::encode(input))
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<[u8; 20], D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        let bytes = hex::decode(s).map_err(Error::custom)?;
+        bytes
+            .try_into()
+            .map_err(|_| Error::custom("Incorrect address length"))
+    }
+}
 
 impl Display for Address {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
