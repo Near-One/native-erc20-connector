@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 [dependencies]
 near-contract-standards.workspace = true
 near-sdk.workspace = true
+near-token-common.workspace = true
 uint.workspace = true
-near-token-common = { path = "../near-token-common" }
 
 [dev-dependencies]

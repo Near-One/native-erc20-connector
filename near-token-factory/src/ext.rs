@@ -1,4 +1,5 @@
 use near_sdk::ext_contract;
+use near_token_common as aurora_sdk;
 
 #[ext_contract(ext_near_token)]
 pub trait ExtNearToken {
@@ -10,4 +11,6 @@ pub trait ExtNearToken {
         amount: near_sdk::json_types::U128,
         memo: Option<String>,
     );
+
+    fn update_metadata(&mut self, metadata: aurora_sdk::UpdateFungibleTokenMetadata);
 }

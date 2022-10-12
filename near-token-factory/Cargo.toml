@@ -9,10 +9,10 @@ rust-version.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk.workspace = true
-uint.workspace = true
 hex.workspace = true
-near-token-common = { path = "../near-token-common" }
+near-sdk.workspace = true
+near-token-common.workspace = true
+uint.workspace = true
 
 [dev-dependencies]
 ethabi.workspace = true

@@ -10,6 +10,7 @@ use near_sdk::{
     assert_self, env, near_bindgen, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
 };
 use near_sdk::{require, AccountId, Gas};
+use near_token_common as aurora_sdk;
 
 mod ext;
 
@@ -48,8 +49,6 @@ impl Contract {
     #[init]
     #[payable]
     pub fn new() -> Self {
-        // TODO: Load metadata automatically during creation.
-
         let factory = env::predecessor_account_id();
 
         let mut contract = Self {
@@ -177,7 +176,7 @@ impl Contract {
     /// Emit `FtBurn` event.
     pub fn withdraw(
         &mut self,
-        receiver_id: near_token_common::Address,
+        receiver_id: aurora_sdk::Address,
         amount: U128,
         memo: Option<String>,
     ) -> Promise {
@@ -212,14 +211,34 @@ impl Contract {
     /// role can call this method. In particular it is expected that the factory
     /// has this role. This allows a trustless workflow where metadata can be
     /// updated by any user starting the call from the locker in Aurora.
-    ///
-    ///
-    pub fn update_metadata(&mut self, metadata: FungibleTokenMetadata) {
+    pub fn update_metadata(&mut self, metadata: aurora_sdk::UpdateFungibleTokenMetadata) {
         // TODO: Make sure accounts with the proper role can call this function.
-        // TODO: Allow updating parts of the metadata, and not require update the whole struct at once.
-        // Update the metadata with the new information.
-        self.metadata = metadata;
-        todo!();
+        self.assert_factory();
+
+        let aurora_sdk::UpdateFungibleTokenMetadata {
+            name,
+            symbol,
+            icon,
+            reference,
+            reference_hash,
+            decimals,
+        } = metadata;
+
+        // Update only parts of the metadata that were specified.
+        name.map(|name| self.metadata.name = name);
+        symbol.map(|symbol| self.metadata.symbol = symbol);
+        icon.map(|icon| self.metadata.icon = Some(icon));
+        reference.map(|reference| self.metadata.reference = Some(reference));
+        reference_hash.map(|reference_hash| self.metadata.reference_hash = Some(reference_hash));
+        decimals.map(|decimals| self.metadata.decimals = decimals);
+    }
+
+    /// Triggers call in ERC20 Locker contract on Aurora to update the metadata of
+    /// this contract. This method is public and can be called by any user. The effect
+    /// of this method is that the fields "name", "symbol" and "decimals" are updated.
+    /// Other fields remain unchanged.
+    pub fn pull_metadata(&mut self) -> Promise {
+        todo!()
     }
 }
 

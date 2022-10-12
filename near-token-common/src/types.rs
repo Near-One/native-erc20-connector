@@ -69,3 +69,15 @@ impl From<[u8; 20]> for Address {
         Self(address)
     }
 }
+
+/// Similar to FungibleTokenMetadata. However, all fields are optional such that the user
+/// can specify any subset of it to be updated.
+#[derive(Deserialize, Serialize, Default)]
+pub struct UpdateFungibleTokenMetadata {
+    pub name: Option<String>,
+    pub symbol: Option<String>,
+    pub icon: Option<String>,
+    pub reference: Option<String>,
+    pub reference_hash: Option<near_sdk::json_types::Base64VecU8>,
+    pub decimals: Option<u8>,
+}
