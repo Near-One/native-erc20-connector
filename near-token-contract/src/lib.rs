@@ -18,6 +18,22 @@ mod ext;
 const GAS_FOR_UNLOCKING_TOKENS: Gas = Gas(10_000_000_000_000);
 const GAS_FOR_ON_WITHDRAW: Gas = Gas(10_000_000_000_000 + GAS_FOR_UNLOCKING_TOKENS.0);
 
+macro_rules! maybe_update_metadata {
+    ($self:ident, $field_name:ident) => {
+        if let Some($field_name) = $field_name {
+            $self.metadata.$field_name = $field_name
+        }
+    };
+}
+
+macro_rules! maybe_update_optional_metadata {
+    ($self:ident, $field_name:ident) => {
+        if let Some($field_name) = $field_name {
+            $self.metadata.$field_name = Some($field_name)
+        }
+    };
+}
+
 #[derive(BorshDeserialize, BorshSerialize, BorshStorageKey)]
 enum StorageKeys {
     FungibleToken,
@@ -225,12 +241,12 @@ impl Contract {
         } = metadata;
 
         // Update only parts of the metadata that were specified.
-        name.map(|name| self.metadata.name = name);
-        symbol.map(|symbol| self.metadata.symbol = symbol);
-        icon.map(|icon| self.metadata.icon = Some(icon));
-        reference.map(|reference| self.metadata.reference = Some(reference));
-        reference_hash.map(|reference_hash| self.metadata.reference_hash = Some(reference_hash));
-        decimals.map(|decimals| self.metadata.decimals = decimals);
+        maybe_update_metadata!(self, name);
+        maybe_update_metadata!(self, symbol);
+        maybe_update_optional_metadata!(self, icon);
+        maybe_update_optional_metadata!(self, reference);
+        maybe_update_optional_metadata!(self, reference_hash);
+        maybe_update_metadata!(self, decimals);
     }
 
     /// Triggers call in ERC20 Locker contract on Aurora to update the metadata of
