@@ -78,7 +78,7 @@ library AuroraSdk {
 
     /// Get the promise result at the specified index.
     function promiseResult(uint256 index) public returns (PromiseResult memory) {
-        (bool success, bytes memory returnData) = CURRENT_ACCOUNT_ID_PRECOMPILE.call("");
+        (bool success, bytes memory returnData) = PROMISE_RESULT_PRECOMPILE.call("");
         require(success);
 
         Borsh.Data memory borsh = Borsh.from(returnData);

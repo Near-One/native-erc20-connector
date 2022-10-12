@@ -144,10 +144,9 @@ contract Locker {
 
         // Transaction to mint tokens failed, so we need to return the tokens
         // to the sender.
-        // TODO: this doesn't work as expected presently (always refunds for some reason)
-        // if (!(AuroraSdk.promiseResult(0).status == PromiseResultStatus.Successful)) {
-        //     token.transfer(sender, amount);
-        // }
+        if (AuroraSdk.promiseResult(0).status != PromiseResultStatus.Successful) {
+            token.transfer(sender, amount);
+        }
     }
 
     /// Finish the transfer of tokens from NEAR to Aurora.
