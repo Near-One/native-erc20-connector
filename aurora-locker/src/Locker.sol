@@ -43,7 +43,7 @@ contract Locker {
     address public immutable selfReprsentativeImplicitAddress;
     /// An address is present in this mapping with a non-zero value if the corresponding NEAR
     /// token has been created.
-    mapping(IERC20 => uint) public registeredTokens;
+    mapping(IERC20 => uint256) public registeredTokens;
 
     constructor(string memory factoryAccountId_, IERC20 wNEAR) {
         factoryAccountId = factoryAccountId_;
@@ -69,11 +69,7 @@ contract Locker {
         // Require user to cover the cost of creating a new token by
         // attaching a balance of `NEW_TOKEN_DEPOSIT_COST`.
         PromiseCreateArgs memory createOnNear = near.call(
-            factoryAccountId,
-            "create_token",
-            abi.encodePacked(token),
-            NEW_TOKEN_DEPOSIT_COST,
-            CREATE_NEAR_GAS
+            factoryAccountId, "create_token", abi.encodePacked(token), NEW_TOKEN_DEPOSIT_COST, CREATE_NEAR_GAS
         );
 
         createOnNear.transact();
