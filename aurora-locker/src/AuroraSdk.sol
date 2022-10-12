@@ -56,7 +56,12 @@ library AuroraSdk {
     /// Compute NEAR represtentative account for the given Aurora address.
     /// This is the NEAR account created by the cross contract call precompile.
     function nearRepresentative(address account) public returns (string memory) {
-        return string(abi.encodePacked(Utils.bytesToHex(abi.encodePacked((bytes20(account)))), ".", currentAccountId()));
+        return addressSubAccount(account, currentAccountId());
+    }
+
+    /// Prepends the given account ID with the given address (hex-encoded).
+    function addressSubAccount(address account, string memory accountId) public pure returns (string memory) {
+        return string(abi.encodePacked(Utils.bytesToHex(abi.encodePacked((bytes20(account)))), ".", accountId));
     }
 
     /// Compute implicity Aurora Address for the given NEAR account.

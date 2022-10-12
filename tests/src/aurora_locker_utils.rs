@@ -221,6 +221,33 @@ impl AuroraLocker {
             .unwrap();
         ContractInput(data)
     }
+
+    pub fn create_token(&self, token: Address) -> ContractInput {
+        let data = self
+            .abi
+            .function("createToken")
+            .unwrap()
+            .encode_input(&[ethabi::Token::Address(token.raw())])
+            .unwrap();
+        ContractInput(data)
+    }
+
+    pub fn storage_deposit(
+        &self,
+        token: Address,
+        account_id: &workspaces::AccountId,
+    ) -> ContractInput {
+        let data = self
+            .abi
+            .function("storageDeposit")
+            .unwrap()
+            .encode_input(&[
+                ethabi::Token::Address(token.raw()),
+                ethabi::Token::String(account_id.as_str().into()),
+            ])
+            .unwrap();
+        ContractInput(data)
+    }
 }
 
 pub trait LockerDeployedAt {

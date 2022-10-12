@@ -89,10 +89,6 @@ impl Contract {
         // Only the factory can deposit tokens
         self.assert_factory();
 
-        // TODO: Is it ok if the contract auto-registers receiver on deposit?
-        // If not, the flow to create a new token needs to be reconsidered.
-        self.token.storage_deposit(Some(receiver_id.clone()), None);
-
         // Mint exact amount of tokens for the receiver
         self.token.internal_deposit(&receiver_id, amount.into());
 

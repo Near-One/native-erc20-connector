@@ -6,6 +6,7 @@ use near_sdk::{
 use near_token_common as aurora_sdk;
 mod ext;
 
+const NEW_TOKEN_DEPOSIT_COST: Balance = 3_000_000_000_000_000_000_000_000;
 const TOKEN_STORAGE_DEPOSIT_COST: Balance = 1_250_000_000_000_000_000_000;
 const TOKEN_DEPLOYMENT_COST: Gas = Gas(5_000_000_000_000);
 const DEPOSIT_COST: Gas = Gas(5_000_000_000_000);
@@ -84,14 +85,22 @@ impl Contract {
 
     /// Create a new token by deploying the current binary in a sub-account. This method
     /// can only be called by the locker.
-    pub fn create_token(&mut self, token_address: aurora_sdk::Address) -> Promise {
+    #[payable]
+    pub fn create_token(
+        &mut self,
+        #[serializer(borsh)] token_address: aurora_sdk::Address,
+    ) -> Promise {
         self.assert_locker();
 
         let token_account_id = account_id_from_token_address(token_address);
         let binary = self.get_token_binary();
 
+        self.tokens
+            .insert(&token_account_id, &self.token_binary_version);
+
         Promise::new(token_account_id)
             .create_account()
+            .transfer(NEW_TOKEN_DEPOSIT_COST)
             .deploy_contract(binary)
             .function_call(
                 "new".to_string(),
@@ -115,42 +124,14 @@ impl Contract {
 
         let token_account_id = account_id_from_token_address(token);
 
-        if self.tokens.get(&token_account_id).is_none() {
-            let binary = self.get_token_binary();
+        require!(
+            self.tokens.get(&token_account_id).is_some(),
+            ERR_TOKEN_NOT_REGISTERED
+        );
 
-            // Register new token.
-            self.tokens
-                .insert(&token_account_id, &self.token_binary_version);
-
-            // The token doesn't exist yet, so we deploy it and initialize it and deposit in a single
-            // batched transaction.
-            Promise::new(token_account_id)
-                .create_account()
-                .transfer(3_000_000_000_000_000_000_000_000) // TODO: cost for storage should be covered by user?
-                .deploy_contract(binary)
-                .function_call(
-                    "new".to_string(),
-                    vec![],
-                    TOKEN_STORAGE_DEPOSIT_COST,
-                    TOKEN_DEPLOYMENT_COST,
-                )
-                .function_call(
-                    "deposit".to_string(),
-                    near_sdk::serde_json::json!({
-                        "receiver_id": receiver_id,
-                        "amount": amount.to_string(),
-                    })
-                    .to_string()
-                    .into_bytes(),
-                    // TODO: auto-register user for new tokens?
-                    TOKEN_STORAGE_DEPOSIT_COST,
-                    DEPOSIT_COST,
-                )
-        } else {
-            ext::ext_near_token::ext(token_account_id)
-                .with_static_gas(DEPOSIT_COST)
-                .deposit(receiver_id, amount.into(), None)
-        }
+        ext::ext_near_token::ext(token_account_id)
+            .with_static_gas(DEPOSIT_COST)
+            .deposit(receiver_id, amount.into(), None)
     }
 
     /// Method invoked by each individual token when an account id calls `withdraw`.

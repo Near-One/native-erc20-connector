@@ -155,6 +155,7 @@ async fn test_deploy_token_factory() {
 
 #[tokio::test]
 async fn test_native_token_connector() {
+    let wnear_mint_amount = 5_000_000_000_000_000_000_000_000_u128;
     let token_mint_amount = 0x_1000_0000_0000_0000_u128;
     let token_deposit_amount = 0x_aaaa_bbbb_cccc_u128;
     let context = NativeTokenConnectorTestContext::new().await.unwrap();
@@ -173,6 +174,13 @@ async fn test_native_token_connector() {
         .unwrap();
     aurora_engine_utils::unwrap_success(mint_result.status).unwrap();
 
+    // Mint NEAR for user in EVM (a wNEAR balance is required to deploy a new token)
+    context
+        .engine
+        .mint_wnear(&context.wnear, user_address, wnear_mint_amount)
+        .await
+        .unwrap();
+
     // Approve locker to take tokens from user
     let approve_result = context
         .engine
@@ -187,6 +195,64 @@ async fn test_native_token_connector() {
         .await
         .unwrap();
     aurora_engine_utils::unwrap_success(approve_result.status).unwrap();
+
+    // Approve locker to take NEAR from user
+    let approve_result = context
+        .engine
+        .call_evm_contract_with(
+            &user,
+            context.wnear.aurora_token.address,
+            context
+                .wnear
+                .aurora_token
+                .approve(context.locker.address, wnear_mint_amount.into()),
+            Wei::zero(),
+        )
+        .await
+        .unwrap();
+    aurora_engine_utils::unwrap_success(approve_result.status).unwrap();
+
+    // Create the token on NEAR
+    let create_result = context
+        .engine
+        .call_evm_contract_with(
+            &user,
+            context.locker.address,
+            context.locker.create_token(context.erc20.address),
+            Wei::zero(),
+        )
+        .await
+        .unwrap();
+    aurora_engine_utils::unwrap_success(create_result.status).unwrap();
+
+    // Confirm token was created using a view call
+    // (if the account was not created the view call would fail because the account does not exist).
+    let token_account = format!(
+        "{}.{}",
+        context.erc20.address.encode(),
+        context.factory.inner.id()
+    )
+    .parse()
+    .unwrap();
+    let balance = nep141_utils::ft_balance_of(&user, &token_account, context.factory.inner.id())
+        .await
+        .unwrap();
+    assert_eq!(balance, 0);
+
+    // Before a deposit will be accepted, the user must do the storage registration
+    let create_result = context
+        .engine
+        .call_evm_contract_with(
+            &user,
+            context.locker.address,
+            context
+                .locker
+                .storage_deposit(context.erc20.address, user.id()),
+            Wei::zero(),
+        )
+        .await
+        .unwrap();
+    aurora_engine_utils::unwrap_success(create_result.status).unwrap();
 
     // Deposit tokens into locker
     let deposit_result = context
@@ -223,13 +289,6 @@ async fn test_native_token_connector() {
     deposit_outcome.into_result().unwrap();
 
     // Verify the balance exists on NEAR now
-    let token_account = format!(
-        "{}.{}",
-        context.erc20.address.encode(),
-        context.factory.inner.id()
-    )
-    .parse()
-    .unwrap();
     let balance = nep141_utils::ft_balance_of(&user, &token_account, user.id())
         .await
         .unwrap();
@@ -277,6 +336,7 @@ async fn test_native_token_connector() {
 struct NativeTokenConnectorTestContext {
     pub worker: workspaces::Worker<workspaces::network::Sandbox>,
     pub engine: aurora_engine_utils::AuroraEngine,
+    pub wnear: Wnear,
     pub locker: aurora_locker_utils::AuroraLocker,
     pub factory: TokenFactory,
     pub erc20: erc20::ERC20,
@@ -335,6 +395,7 @@ impl NativeTokenConnectorTestContext {
         Ok(Self {
             worker,
             engine,
+            wnear,
             locker,
             factory,
             erc20,
