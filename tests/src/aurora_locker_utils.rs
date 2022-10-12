@@ -215,7 +215,7 @@ impl AuroraLocker {
     pub fn init_near_account(&self) -> ContractInput {
         let data = self
             .abi
-            .function("init_near_account")
+            .function("initNearAccount")
             .unwrap()
             .encode_input(&[])
             .unwrap();

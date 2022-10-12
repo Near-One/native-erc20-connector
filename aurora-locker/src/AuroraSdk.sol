@@ -109,7 +109,7 @@ library AuroraSdk {
     /// Input is not checekd during promise creation. If it is invalid, the
     /// transaction will be scheduled either way, but it will fail during execution.
     function call(
-        NEAR memory near,
+        NEAR storage near,
         string memory targetAccountId,
         string memory method,
         bytes memory args,
@@ -136,7 +136,7 @@ library AuroraSdk {
 
     /// Similar to `call`. It is a wrapper that simplifies the creation of a promise
     /// to a controct inside `Aurora`.
-    function auroraCall(NEAR memory near, address target, bytes memory args, uint128 nearBalance, uint64 nearGas)
+    function auroraCall(NEAR storage near, address target, bytes memory args, uint128 nearBalance, uint64 nearGas)
         public
         returns (PromiseCreateArgs memory)
     {

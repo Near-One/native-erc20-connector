@@ -47,14 +47,8 @@ contract Locker {
 
     /// Perform a do-nothing transaction to force the Locker's NEAR account to be created.
     /// This means that the first deposit to the locker will not need to cover the initialization cost.
-    function init_near_account() public {
-        PromiseCreateArgs memory create_near_account = near.call(
-            factoryAccountId,
-            "touch",
-            "",
-            0,
-            1
-        );
+    function initNearAccount() public {
+        PromiseCreateArgs memory create_near_account = near.call(factoryAccountId, "touch", "", 0, 1);
         create_near_account.transact();
     }
 
@@ -70,8 +64,6 @@ contract Locker {
     function deposit(IERC20 token, string memory receiverId, uint128 amount) public {
         // First transfer the tokens from the caller to the locker contract.
         token.transferFrom(msg.sender, address(this), amount);
-
-        // TODO: Seems like `near.initialized` is not properly updated after the first call
 
         // Issue a call to the factory on NEAR factory to mint the same amount
         // of tokens for the receiverId on NEAR for this token.
