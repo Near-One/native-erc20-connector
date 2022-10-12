@@ -8,8 +8,8 @@ import "./AuroraSdk.sol";
 string constant ERR_METHOD_NOT_IMPLEMENTED = "ERR_METHOD_NOT_IMPLEMENTED";
 // TODO: Determine proper values for gas.
 uint64 constant ON_DEPOSIT_NEAR_GAS = 3_000_000_000_000;
-// TODO: Determine proper values for gas.
 uint64 constant DEPOSIT_CALLBACK_NEAR_GAS = 3_000_000_000_000;
+uint64 constant ON_UPDATE_TOKEN_METADATA = 3_000_000_000_000;
 
 // TODO: Implement Pause mechanics.
 // TODO: Implement Upgradable mechanics.
@@ -26,6 +26,7 @@ contract Locker {
     using AuroraSdk for PromiseCreateArgs;
     using Codec for bytes;
     using Codec for uint128;
+    using Codec for uint8;
 
     /// NEAR Account Id of the factory
     string public factoryAccountId;
@@ -107,6 +108,33 @@ contract Locker {
 
         // Transfer the tokens to the receiver.
         token.transfer(receiver, amount);
+    }
+
+    /// Fetch the current metadata of the specified ERC20 token and updates
+    /// the metadata on the NEAR side with the same values. This methods can
+    /// be called by anyone, even for tokens that already has metadata. This
+    /// is relevant in case metadata is updated on the ERC20 side.
+    ///
+    /// In particular if the token have not been registered on NEAR side, the
+    /// promise to update the metadata will fail.
+    function syncTokenMetadata(IERC20Metadata token) public {
+        // Fetch the metadata from the ERC20 token.
+        string memory name = token.name();
+        string memory symbol = token.symbol();
+        uint8 decimals = token.decimals();
+
+        // Issue a call to the factory on NEAR factory to update the metadata
+        // for this token.
+        PromiseCreateArgs memory updateMetadataOnNear = near.call(
+            factoryAccountId,
+            "update_token_metadata",
+            abi.encodePacked(token, bytes(name).encode(), bytes(symbol).encode(), decimals.encodeU8()),
+            0,
+            ON_UPDATE_TOKEN_METADATA
+        );
+
+        // Schedule the promise.
+        updateMetadataOnNear.transact();
     }
 
     /// Create NEP141 compatible contract on NEAR for any ERC20 token.

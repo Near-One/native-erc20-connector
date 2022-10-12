@@ -9,11 +9,13 @@ mod ext;
 const TOKEN_STORAGE_DEPOSIT_COST: Balance = 1_000_000_000_000_000_000;
 const TOKEN_DEPLOYMENT_COST: Gas = Gas(5_000_000_000_000);
 const DEPOSIT_COST: Gas = Gas(2_000_000_000_000);
+const UPDATE_METADATA_COST: Gas = Gas(2_000_000_000_000);
 
 const ERR_ONLY_LOCKER: &str = "ERR_ONLY_LOCKER: Only locker can call this method.";
 const ERR_INVALID_ACCOUNT: &str =
     "ERR_INVALID_ACCOUNT: Account ID too large. Impossible to create token subcontracts.";
 const ERR_BINARY_NOT_AVAILABLE: &str = "ERR_BINARY_NOT_AVAILABLE: Token binary is not set.";
+const ERR_TOKEN_NOT_REGISTERED: &str = "ERR_TOKEN_NOT_REGISTERED: Token is not registered.";
 
 pub const WITHDRAW_SELECTOR: [u8; 4] = [0xd9, 0xca, 0xed, 0x12];
 
@@ -177,6 +179,31 @@ impl Contract {
     pub fn locker_account_id(&self) -> AccountId {
         format!("{}.{}", self.locker, self.aurora).parse().unwrap()
     }
+
+    /// Method that allows updating the metadata of a particular token. This method can only
+    /// be called by the locker.
+    pub fn update_token_metadata(
+        &mut self,
+        #[serializer(borsh)] token: aurora_sdk::Address,
+        #[serializer(borsh)] metadata: ERC20Metadata,
+    ) -> Promise {
+        self.assert_locker();
+
+        let token_account_id = account_id_from_token_address(token);
+
+        if self.tokens.get(&token_account_id).is_none() {
+            env::panic_str(ERR_TOKEN_NOT_REGISTERED);
+        }
+
+        ext::ext_near_token::ext(token_account_id)
+            .with_static_gas(UPDATE_METADATA_COST)
+            .update_metadata(aurora_sdk::UpdateFungibleTokenMetadata {
+                name: Some(metadata.name),
+                symbol: Some(metadata.symbol),
+                decimals: Some(metadata.decimals),
+                ..Default::default()
+            })
+    }
 }
 
 impl Contract {
@@ -214,6 +241,13 @@ fn abi_encode_withdraw(
     buffer[48..68].copy_from_slice(&receiver_id.0);
     buffer[84..100].copy_from_slice(&amount.to_be_bytes());
     buffer.to_vec()
+}
+
+#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
+pub struct ERC20Metadata {
+    name: String,
+    symbol: String,
+    decimals: u8,
 }
 
 #[cfg(test)]

@@ -9,6 +9,14 @@ import "./Utils.sol";
 library Codec {
     using Borsh for Borsh.Data;
 
+    function encodeU8(uint8 v) internal pure returns (bytes1) {
+        return bytes1(v);
+    }
+
+    function encodeU16(uint16 v) internal pure returns (bytes2) {
+        return bytes2(Utils.swapBytes2(v));
+    }
+
     function encodeU32(uint32 v) public pure returns (bytes4) {
         return bytes4(Utils.swapBytes4(v));
     }
