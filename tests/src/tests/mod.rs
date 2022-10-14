@@ -1,5 +1,7 @@
 use crate::{
+    acl_utils::call_access_controlled_method,
     aurora_engine_utils::{self, erc20, erc20::ERC20DeployedAt, repo::AuroraEngineRepo},
+    token_factory_utils::TokenFactory,
     wnear_utils::Wnear,
 };
 use aurora_engine::parameters::{CallArgs, FunctionCallArgsV2, SubmitResult};
@@ -9,6 +11,8 @@ use aurora_engine_types::{
     types::{Address, NearGas, Wei, Yocto},
 };
 use borsh::BorshSerialize;
+use near_sdk::serde_json::json;
+use near_token_common::UpdateFungibleTokenMetadata;
 
 #[tokio::test]
 async fn test_compile_aurora_engine() {
@@ -145,11 +149,47 @@ async fn test_deploy_token_factory() {
     // In reality we would deploy the locker contract and get its address,
     // but that is not needed for this test. We can choose any address we like.
     let locker_address = Address::decode("000000000000000000000000000000000000000a").unwrap();
-    let _factory = crate::token_factory_utils::TokenFactory::deploy(
-        &worker,
-        locker_address,
-        engine.inner.id(),
+    let _factory = TokenFactory::deploy(&worker, locker_address, engine.inner.id())
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn test_near_token_contract_acl() -> anyhow::Result<()> {
+    // Spin up a sandbox, compile, and deploy `near-token-contract`.
+    let worker = workspaces::sandbox().await?;
+    let wasm = TokenFactory::compile_token().await?;
+    let contract = worker.dev_deploy(&wasm).await?;
+
+    // Initialize the contract.
+    contract
+        .call("new")
+        .args_json(())
+        .deposit(near_sdk::ONE_NEAR)
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Calling access controlled method from account without role fails.
+    let account_no_roles = worker.dev_create_account().await?;
+    call_access_controlled_method(
+        &account_no_roles,
+        &contract,
+        "update_metadata",
+        json!({ "metadata": UpdateFungibleTokenMetadata::default() }),
     )
-    .await
-    .unwrap();
+    .await?
+    .assert_acl_failure();
+
+    call_access_controlled_method(
+        &contract.as_account(),
+        &contract,
+        "update_metadata",
+        json!({ "metadata": UpdateFungibleTokenMetadata::default() }),
+    )
+    .await?
+    .assert_success_unit_return();
+
+    Ok(())
 }

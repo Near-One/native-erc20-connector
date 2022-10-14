@@ -4,8 +4,11 @@ use near_contract_standards::fungible_token::metadata::{
     FungibleTokenMetadata, FungibleTokenMetadataProvider,
 };
 use near_contract_standards::fungible_token::FungibleToken;
+use near_plugins::events::AsEvent;
+use near_plugins::{access_control, access_control_any, AccessControlRole, AccessControllable};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
+use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     assert_self, env, near_bindgen, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
 };
@@ -39,6 +42,13 @@ enum StorageKeys {
     FungibleToken,
 }
 
+#[derive(AccessControlRole, Deserialize, Serialize, Copy, Clone)]
+#[serde(crate = "near_sdk::serde")]
+pub enum AclRole {
+    MetadataUpdater,
+}
+
+#[access_control(role_type = "AclRole")]
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
@@ -51,8 +61,6 @@ pub struct Contract {
 }
 
 // TODO: Pausable methods.
-// TODO: Access Control methods.
-// TODO:    Add super-admin with full-access-key control.
 #[near_bindgen]
 impl Contract {
     /// Initializes the contract. This function must be called exactly once
@@ -62,6 +70,9 @@ impl Contract {
     ///
     /// Method is payable since the factory needs to pay the storage to be
     /// registered automatically.
+    ///
+    /// It adds the factory as acl super-admin and grants role
+    /// [`Role::MetaDataUpdater`] to it.
     #[init]
     #[payable]
     pub fn new() -> Self {
@@ -71,10 +82,24 @@ impl Contract {
             factory: factory.clone(),
             token: FungibleToken::new(StorageKeys::FungibleToken),
             metadata: default_metadata(),
+            __acl: Default::default(),
         };
 
         // Automatically register the factory as a minter.
-        contract.token.storage_deposit(Some(factory), None);
+        contract.token.storage_deposit(Some(factory.clone()), None);
+
+        // Make the factory acl super-admin and grant roles to it.
+        assert!(
+            contract.__acl.init_super_admin(&factory),
+            "Failed to add factory as initial acl super-admin",
+        );
+        assert_eq!(
+            Some(true),
+            contract
+                .__acl
+                .grant_role(AclRole::MetadataUpdater, &factory),
+            "Failed to grant role to factory",
+        );
 
         contract
     }
@@ -227,8 +252,8 @@ impl Contract {
     /// role can call this method. In particular it is expected that the factory
     /// has this role. This allows a trustless workflow where metadata can be
     /// updated by any user starting the call from the locker in Aurora.
+    #[access_control_any(roles(AclRole::MetadataUpdater))]
     pub fn update_metadata(&mut self, metadata: aurora_sdk::UpdateFungibleTokenMetadata) {
-        // TODO: Make sure accounts with the proper role can call this function.
         self.assert_factory();
 
         let aurora_sdk::UpdateFungibleTokenMetadata {

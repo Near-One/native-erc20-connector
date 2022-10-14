@@ -9,9 +9,14 @@ rust-version.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
+bitflags.workspace = true
 near-contract-standards.workspace = true
+near-plugins.workspace = true
 near-sdk.workspace = true
 near-token-common.workspace = true
 uint.workspace = true
 
 [dev-dependencies]
+anyhow.workspace = true
+tokio.workspace = true
+workspaces.workspace = true
