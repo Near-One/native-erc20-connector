@@ -77,7 +77,7 @@ library AuroraSdk {
     }
 
     /// Get the promise result at the specified index.
-    function promiseResult(uint256 index) public returns (PromiseResult memory) {
+    function promiseResult(uint256 index) public returns (PromiseResult memory result) {
         (bool success, bytes memory returnData) = PROMISE_RESULT_PRECOMPILE.call("");
         require(success);
 
@@ -87,10 +87,16 @@ library AuroraSdk {
         require(index < length, "Index out of bounds");
 
         for (uint256 i = 0; i < index; i++) {
-            borsh.skipPromiseResult();
+            PromiseResultStatus status = PromiseResultStatus(uint8(borsh.decodeU8()));
+            if (status == PromiseResultStatus.Successful) {
+                borsh.skipBytes();
+            }
         }
 
-        return borsh.decodePromiseResult();
+        result.status = PromiseResultStatus(borsh.decodeU8());
+        if (result.status == PromiseResultStatus.Successful) {
+            result.output = borsh.decodeBytes();
+        }
     }
 
     /// Get the NEAR account id of the current contract. It is the account id of Aurora engine.
