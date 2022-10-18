@@ -136,8 +136,7 @@ async fn forge_build(
     libraries: &[String],
     contract_output_path: &[&str],
 ) -> anyhow::Result<serde_json::Value> {
-    let mutex_ref = &FORGE_LOCK;
-    let _guard = mutex_ref.lock().await;
+    let _guard = FORGE_LOCK.lock().await;
     let aurora_locker_path = Path::new(AURORA_LOCKER_PATH);
     let args = std::iter::once("build").chain(libraries.iter().flat_map(|x| ["--libraries", x]));
     let output = Command::new("forge")
