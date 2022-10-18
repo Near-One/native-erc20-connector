@@ -1,4 +1,7 @@
-use crate::aurora_engine_utils::{erc20::ERC20, AuroraEngine};
+use crate::{
+    aurora_engine_utils::{erc20::ERC20, AuroraEngine},
+    nep141_utils::{self, AccountIdArgs},
+};
 use std::path::Path;
 use workspaces::{network::Sandbox, Contract, Worker};
 
@@ -74,18 +77,6 @@ impl Wnear {
     }
 
     pub async fn ft_balance_of(&self, account_id: &workspaces::AccountId) -> anyhow::Result<u128> {
-        let outcome = self
-            .inner
-            .call("ft_balance_of")
-            .args_json(AccountIdArgs { account_id })
-            .transact()
-            .await?;
-        let result: String = outcome.json()?;
-        Ok(result.parse()?)
+        nep141_utils::ft_balance_of(self.inner.as_account(), self.inner.id(), account_id).await
     }
-}
-
-#[derive(serde::Serialize)]
-struct AccountIdArgs<'a> {
-    account_id: &'a workspaces::AccountId,
 }

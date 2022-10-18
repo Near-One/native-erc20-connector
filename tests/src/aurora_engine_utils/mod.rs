@@ -112,7 +112,7 @@ impl AuroraEngine {
             .await?;
         let address_bytes: Vec<u8> = outcome.borsh()?;
         let address = Address::try_from_slice(&address_bytes).unwrap();
-        let erc20 = erc20::Constructor::load().await?.abi.deployed_at(address);
+        let erc20 = erc20::Constructor::load().await?.deployed_at(address);
         Ok(erc20)
     }
 

@@ -7,9 +7,16 @@ import "./AuroraSdk.sol";
 
 string constant ERR_METHOD_NOT_IMPLEMENTED = "ERR_METHOD_NOT_IMPLEMENTED";
 // TODO: Determine proper values for gas.
-uint64 constant ON_DEPOSIT_NEAR_GAS = 3_000_000_000_000;
-uint64 constant DEPOSIT_CALLBACK_NEAR_GAS = 3_000_000_000_000;
+uint64 constant ON_DEPOSIT_NEAR_GAS = 25_000_000_000_000;
+// TODO: Determine proper values for gas.
+uint64 constant CREATE_NEAR_GAS = 50_000_000_000_000;
+// TODO: Determine proper values for gas.
+uint64 constant DEPOSIT_CALLBACK_NEAR_GAS = 15_000_000_000_000;
 uint64 constant ON_UPDATE_TOKEN_METADATA = 3_000_000_000_000;
+// TODO: Determine proper values for gas.
+uint64 constant STORAGE_DEPOSIT_NEAR_GAS = 5_000_000_000_000;
+uint128 constant NEW_TOKEN_DEPOSIT_COST = 3_000_000_000_000_000_000_000_000;
+uint128 constant STORAGE_DEPOSIT_COST = 1_250_000_000_000_000_000_000;
 
 // TODO: Implement Pause mechanics.
 // TODO: Implement Upgradable mechanics.
@@ -36,12 +43,57 @@ contract Locker {
     NEAR public near;
     /// Implicit address for representative NEAR account of this contract.
     address public immutable selfReprsentativeImplicitAddress;
+    /// An address is present in this mapping with a non-zero value if the corresponding NEAR
+    /// token has been created.
+    mapping(IERC20 => uint256) public registeredTokens;
 
     constructor(string memory factoryAccountId_, IERC20 wNEAR) {
         factoryAccountId = factoryAccountId_;
         factoryImplicitAddress = AuroraSdk.implicitAuroraAddress(factoryAccountId);
         near = AuroraSdk.initNear(wNEAR);
         selfReprsentativeImplicitAddress = AuroraSdk.nearRepresentitiveImplicitAddress(address(this));
+    }
+
+    /// Perform a do-nothing transaction to force the Locker's NEAR account to be created.
+    /// This means that the first deposit to the locker will not need to cover the initialization cost.
+    function initNearAccount() public {
+        PromiseCreateArgs memory create_near_account = near.call(factoryAccountId, "touch", "", 0, 1);
+        create_near_account.transact();
+    }
+
+    /// Function to bridge a new token to NEAR. Must be called before the token will
+    /// be accepted by `deposit`.
+    function createToken(IERC20 token) public {
+        require(registeredTokens[token] == 0, "ERR_TOKEN_ALREADY_REGISTERED");
+
+        registeredTokens[token] = 1;
+
+        // Require user to cover the cost of creating a new token by
+        // attaching a balance of `NEW_TOKEN_DEPOSIT_COST`.
+        PromiseCreateArgs memory createOnNear = near.call(
+            factoryAccountId, "create_token", abi.encodePacked(token), NEW_TOKEN_DEPOSIT_COST, CREATE_NEAR_GAS
+        );
+
+        createOnNear.transact();
+    }
+
+    /// Pays the NEP-141 storage deposit of the given token for the given account ID.
+    function storageDeposit(IERC20 token, string memory accountId) public {
+        require(registeredTokens[token] > 0, "ERR_TOKEN_NOT_FOUND");
+
+        string memory tokenAccountId = AuroraSdk.addressSubAccount(address(token), factoryAccountId);
+
+        // Require user to cover the cost of the storage deposit by
+        // attaching a balance of `NEW_TOKEN_DEPOSIT_COST`.
+        PromiseCreateArgs memory storageDepositOnNear = near.call(
+            tokenAccountId,
+            "storage_deposit",
+            abi.encodePacked("{\"account_id\":\"", accountId, "\"}"),
+            STORAGE_DEPOSIT_COST,
+            STORAGE_DEPOSIT_NEAR_GAS
+        );
+
+        storageDepositOnNear.transact();
     }
 
     /// ERC20 tokens are locked in this contract, while the equivalent
@@ -54,6 +106,8 @@ contract Locker {
     /// If the transaction fails, the tokens are automatically returned to
     /// the sender of the transaction.
     function deposit(IERC20 token, string memory receiverId, uint128 amount) public {
+        require(registeredTokens[token] > 0, "ERR_TOKEN_NOT_FOUND");
+
         // First transfer the tokens from the caller to the locker contract.
         token.transferFrom(msg.sender, address(this), amount);
 
@@ -77,7 +131,7 @@ contract Locker {
         );
 
         // Combine the two promises into a single promise and schedule it.
-        mintOnNear.then(callback).transact();
+        mintOnNear.then(callback).lazy_transact();
     }
 
     /// Callback to return tokens to the sender if the call to the factory
@@ -90,7 +144,7 @@ contract Locker {
 
         // Transaction to mint tokens failed, so we need to return the tokens
         // to the sender.
-        if (!(AuroraSdk.promiseResult(0).status == PromiseResultStatus.Successful)) {
+        if (AuroraSdk.promiseResult(0).status != PromiseResultStatus.Successful) {
             token.transfer(sender, amount);
         }
     }
@@ -135,17 +189,6 @@ contract Locker {
 
         // Schedule the promise.
         updateMetadataOnNear.transact();
-    }
-
-    /// Create NEP141 compatible contract on NEAR for any ERC20 token.
-    ///
-    /// This function CAN be called at most once per token. Subsequent
-    /// times will have no effect, or could potentially fail. There is no
-    /// restriction on who can call this function.
-    function register(
-        IERC20Metadata //token
-    ) public pure {
-        require(false, ERR_METHOD_NOT_IMPLEMENTED);
     }
 
     /// Transfer ERC20 tokens from Aurora to NEAR chain and execute a

@@ -82,7 +82,7 @@ library Codec {
 
     /// Decode promise result using borsh.
     function decodePromiseResult(Borsh.Data memory data) public pure returns (PromiseResult memory result) {
-        result.status = PromiseResultStatus(uint8(data.decodeU8()));
+        result.status = PromiseResultStatus(data.decodeU8());
         if (result.status == PromiseResultStatus.Successful) {
             result.output = data.decodeBytes();
         }

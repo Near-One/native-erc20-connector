@@ -84,6 +84,7 @@ impl Contract {
     /// executed only if the predecessor account id is the factory.
     ///
     /// Emit `FtMint` event.
+    #[payable]
     pub fn deposit(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
         // Only the factory can deposit tokens
         self.assert_factory();
