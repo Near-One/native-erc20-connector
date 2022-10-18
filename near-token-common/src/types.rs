@@ -33,7 +33,7 @@ impl From<CallArgs> for FunctionCallArgs {
 
 pub type WeiU256 = [u8; 32];
 
-#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize, Debug, Clone, PartialEq, Eq)]
 pub struct Address(#[serde(with = "address_serde_hex")] pub [u8; 20]);
 
 mod address_serde_hex {
@@ -51,7 +51,8 @@ mod address_serde_hex {
         D: Deserializer<'de>,
     {
         let s: String = Deserialize::deserialize(deserializer)?;
-        let bytes = hex::decode(s).map_err(Error::custom)?;
+        let no_prefix = s.strip_prefix("0x").unwrap_or(&s);
+        let bytes = hex::decode(no_prefix).map_err(Error::custom)?;
         bytes
             .try_into()
             .map_err(|_| Error::custom("Incorrect address length"))

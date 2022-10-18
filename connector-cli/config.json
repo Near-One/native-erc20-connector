@@ -1,0 +1,9 @@
+{
+  "near_rpc_url": "https://archival-rpc.testnet.near.org/",
+  "aurora_rpc_url": null,
+  "factory_account_id": "factory.testnet",
+  "locker_address": null,
+  "signing": null,
+  "repository_root": null,
+  "use_aurora_rpc": false
+}
