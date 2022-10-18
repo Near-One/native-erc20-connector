@@ -29,7 +29,7 @@ serde_json = "1"
 tokio = { version = "1.18", features = ["full"] }
 toml = "0.5"
 uint = { version = "0.9.3", default-features = false }
-workspaces = { git = "https://github.com/near/workspaces-rs.git", rev = "8b3356a29f71756d86840679d3ff162b885123c9" }
+workspaces = "0.6"
 
 [workspace.package]
 edition = "2021"
