@@ -1,5 +1,5 @@
 use crate::{
-    acl_utils::call_access_controlled_method,
+    acl_utils::{call_access_controlled_method, call_acl_has_role},
     aurora_engine_utils::{self, erc20, erc20::ERC20DeployedAt, repo::AuroraEngineRepo},
     token_factory_utils::TokenFactory,
     wnear_utils::Wnear,
@@ -182,14 +182,19 @@ async fn test_near_token_contract_acl() -> anyhow::Result<()> {
     .await?
     .assert_acl_failure();
 
+    // Calling access controlled method from account with permission succeeds.
     call_access_controlled_method(
-        &contract.as_account(),
+        contract.as_account(),
         &contract,
         "update_metadata",
         json!({ "metadata": UpdateFungibleTokenMetadata::default() }),
     )
     .await?
     .assert_success_unit_return();
+
+    // Calling a method provided by `#[access_controllable]`.
+    assert!(!call_acl_has_role(&contract, "MetadataUpdater", account_no_roles.id()).await?);
+    assert!(call_acl_has_role(&contract, "MetadataUpdater", contract.id()).await?);
 
     Ok(())
 }

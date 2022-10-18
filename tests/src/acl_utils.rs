@@ -1,9 +1,9 @@
 use near_sdk::serde::de::DeserializeOwned;
-use near_sdk::serde_json;
+use near_sdk::serde_json::{self, json};
 use std::cmp::PartialEq;
 use std::fmt::Debug;
 use workspaces::result::{ExecutionFinalResult, ExecutionSuccess};
-use workspaces::{Account, Contract};
+use workspaces::{Account, AccountId, Contract};
 
 #[derive(Debug)]
 pub enum AclTxOutcome {
@@ -101,4 +101,20 @@ pub async fn call_access_controlled_method(
         }),
     };
     Ok(tx_outcome)
+}
+
+pub async fn call_acl_has_role(
+    contract: &Contract,
+    role: &str,
+    account_id: &AccountId,
+) -> anyhow::Result<bool> {
+    let res = contract
+        .call("acl_has_role")
+        .args_json(json!({
+            "role": role,
+            "account_id": account_id,
+        }))
+        .view()
+        .await?;
+    Ok(res.json::<bool>()?)
 }
