@@ -610,6 +610,7 @@ name = "connector-cli"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "near-account-id 0.15.0",
  "near-token-common",

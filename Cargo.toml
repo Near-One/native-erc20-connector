@@ -20,6 +20,7 @@ aurora-engine-transactions = { git = "https://github.com/aurora-is-near/aurora-e
 aurora-engine-types = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
 base64 = "0.13.0"
 borsh = "0.9"
+chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.0", features = ["derive"] }
 ethabi = "17.2"
 hex = "0.4"

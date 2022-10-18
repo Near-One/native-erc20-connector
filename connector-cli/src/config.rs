@@ -13,6 +13,8 @@ pub struct Config {
     /// Aurora Address where `aurora-locker` is deployed,
     /// or `null` if the locker is not yet deployed.
     pub locker_address: Option<near_token_common::types::Address>,
+    /// Path to file where logs are written
+    pub log_path: String,
     /// Credentials used for signing transactions. Must be given if executing transactions
     /// that change the state (e.g. `deploy`).
     pub signing: Option<Signing>,
@@ -43,6 +45,7 @@ impl Config {
             aurora_rpc_url: None,
             factory_account_id: "factory.testnet".parse().unwrap(),
             locker_address: None,
+            log_path: "connector_cli.log".into(),
             signing: None,
             repository_root: None,
             use_aurora_rpc: false,

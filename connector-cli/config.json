@@ -3,6 +3,7 @@
   "aurora_rpc_url": null,
   "factory_account_id": "factory.testnet",
   "locker_address": null,
+  "log_path": "connector_cli.log",
   "signing": null,
   "repository_root": null,
   "use_aurora_rpc": false
