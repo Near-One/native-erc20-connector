@@ -558,6 +558,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "connector-cli"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "tokio",
+]
+
+[[package]]
 name = "constant_time_eq"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
