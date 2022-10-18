@@ -13,6 +13,8 @@ use aurora_engine_types::{
 };
 use borsh::BorshSerialize;
 
+mod promise_result;
+
 #[tokio::test]
 async fn test_compile_aurora_engine() {
     let contract = AuroraEngineRepo::download_and_compile_latest()

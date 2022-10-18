@@ -1,29 +1,15 @@
 use crate::aurora_engine_utils::{AuroraEngine, ContractInput};
 use aurora_engine_types::types::Address;
 use std::path::{Path, PathBuf};
-use tokio::process::Command;
+use tokio::{process::Command, sync::Mutex};
 
+/// A lock to prevent multiple tests from compiling the Solidity contracts with different
+/// library addresses at the same time.
+static FORGE_LOCK: Mutex<()> = Mutex::const_new(());
 const AURORA_LOCKER_PATH: &str = "../aurora-locker";
 
 pub async fn deploy_codec_lib(engine: &AuroraEngine) -> anyhow::Result<Address> {
-    let aurora_locker_path = Path::new(AURORA_LOCKER_PATH);
-    let output = Command::new("forge")
-        .current_dir(aurora_locker_path)
-        .arg("build")
-        .output()
-        .await?;
-    crate::process_utils::require_success(output)?;
-    let codec_data: serde_json::Value = {
-        let s = tokio::fs::read_to_string(
-            aurora_locker_path.join(
-                ["out", "Codec.sol", "Codec.json"]
-                    .iter()
-                    .collect::<PathBuf>(),
-            ),
-        )
-        .await?;
-        serde_json::from_str(&s)?
-    };
+    let codec_data = forge_build(&[], &["out", "Codec.sol", "Codec.json"]).await?;
     let code_hex = json_lens(&codec_data, &["bytecode", "object"], |x| {
         serde_json::Value::as_str(x)
     })
@@ -36,24 +22,7 @@ pub async fn deploy_codec_lib(engine: &AuroraEngine) -> anyhow::Result<Address> 
 }
 
 pub async fn deploy_utils_lib(engine: &AuroraEngine) -> anyhow::Result<Address> {
-    let aurora_locker_path = Path::new(AURORA_LOCKER_PATH);
-    let output = Command::new("forge")
-        .current_dir(aurora_locker_path)
-        .arg("build")
-        .output()
-        .await?;
-    crate::process_utils::require_success(output)?;
-    let utils_data: serde_json::Value = {
-        let s = tokio::fs::read_to_string(
-            aurora_locker_path.join(
-                ["out", "Utils.sol", "Utils.json"]
-                    .iter()
-                    .collect::<PathBuf>(),
-            ),
-        )
-        .await?;
-        serde_json::from_str(&s)?
-    };
+    let utils_data = forge_build(&[], &["out", "Utils.sol", "Utils.json"]).await?;
     let code_hex = json_lens(&utils_data, &["bytecode", "object"], |x| {
         serde_json::Value::as_str(x)
     })
@@ -70,31 +39,38 @@ pub async fn deploy_aurora_sdk_lib(
     codec_lib: Address,
     utils_lib: Address,
 ) -> anyhow::Result<Address> {
-    let aurora_locker_path = Path::new(AURORA_LOCKER_PATH);
-    let output = Command::new("forge")
-        .current_dir(aurora_locker_path)
-        .args([
-            "build",
-            "--libraries",
-            format!("src/Codec.sol:Codec:0x{}", codec_lib.encode()).as_str(),
-            "--libraries",
-            format!("src/Utils.sol:Utils:0x{}", utils_lib.encode()).as_str(),
-        ])
-        .output()
-        .await?;
-    crate::process_utils::require_success(output)?;
-    let aurora_sdk_data: serde_json::Value = {
-        let s = tokio::fs::read_to_string(
-            aurora_locker_path.join(
-                ["out", "AuroraSdk.sol", "AuroraSdk.json"]
-                    .iter()
-                    .collect::<PathBuf>(),
-            ),
-        )
-        .await?;
-        serde_json::from_str(&s)?
-    };
+    let aurora_sdk_data = forge_build(
+        &[
+            format!("src/Codec.sol:Codec:0x{}", codec_lib.encode()),
+            format!("src/Utils.sol:Utils:0x{}", utils_lib.encode()),
+        ],
+        &["out", "AuroraSdk.sol", "AuroraSdk.json"],
+    )
+    .await?;
     let code_hex = json_lens(&aurora_sdk_data, &["bytecode", "object"], |x| {
+        serde_json::Value::as_str(x)
+    })
+    .ok_or_else(forge_parse_err)?;
+    let code_hex = code_hex.strip_prefix("0x").unwrap_or(code_hex);
+    let code = hex::decode(code_hex)?;
+
+    let address = engine.deploy_evm_contract(code).await?;
+    Ok(address)
+}
+
+pub async fn deploy_aurora_sdk_test_contract(
+    engine: &AuroraEngine,
+    aurora_sdk_lib: Address,
+) -> anyhow::Result<Address> {
+    let aurora_sdk_test_data = forge_build(
+        &[format!(
+            "src/AuroraSdk.sol:AuroraSdk:0x{}",
+            aurora_sdk_lib.encode()
+        )],
+        &["out", "AuroraSdk.t.sol", "AuroraSdkTest.json"],
+    )
+    .await?;
+    let code_hex = json_lens(&aurora_sdk_test_data, &["bytecode", "object"], |x| {
         serde_json::Value::as_str(x)
     })
     .ok_or_else(forge_parse_err)?;
@@ -120,30 +96,14 @@ pub struct Constructor {
 
 impl Constructor {
     pub async fn load(aurora_sdk_lib: Address, codec_lib: Address) -> anyhow::Result<Self> {
-        let aurora_locker_path = Path::new(AURORA_LOCKER_PATH);
-        let output = Command::new("forge")
-            .current_dir(aurora_locker_path)
-            .args([
-                "build",
-                "--libraries",
-                format!("src/Codec.sol:Codec:0x{}", codec_lib.encode()).as_str(),
-                "--libraries",
-                format!("src/AuroraSdk.sol:AuroraSdk:0x{}", aurora_sdk_lib.encode()).as_str(),
-            ])
-            .output()
-            .await?;
-        crate::process_utils::require_success(output)?;
-        let locker_data: serde_json::Value = {
-            let s = tokio::fs::read_to_string(
-                aurora_locker_path.join(
-                    ["out", "Locker.sol", "Locker.json"]
-                        .iter()
-                        .collect::<PathBuf>(),
-                ),
-            )
-            .await?;
-            serde_json::from_str(&s)?
-        };
+        let locker_data = forge_build(
+            &[
+                format!("src/Codec.sol:Codec:0x{}", codec_lib.encode()),
+                format!("src/AuroraSdk.sol:AuroraSdk:0x{}", aurora_sdk_lib.encode()),
+            ],
+            &["out", "Locker.sol", "Locker.json"],
+        )
+        .await?;
         let code_hex = json_lens(&locker_data, &["bytecode", "object"], |x| {
             serde_json::Value::as_str(x)
         })
@@ -170,6 +130,29 @@ impl Constructor {
             )
             .unwrap()
     }
+}
+
+async fn forge_build(
+    libraries: &[String],
+    contract_output_path: &[&str],
+) -> anyhow::Result<serde_json::Value> {
+    let mutex_ref = &FORGE_LOCK;
+    let _guard = mutex_ref.lock().await;
+    let aurora_locker_path = Path::new(AURORA_LOCKER_PATH);
+    let args = std::iter::once("build").chain(libraries.iter().flat_map(|x| ["--libraries", x]));
+    let output = Command::new("forge")
+        .current_dir(aurora_locker_path)
+        .args(args)
+        .output()
+        .await?;
+    crate::process_utils::require_success(output)?;
+
+    let s = tokio::fs::read_to_string(
+        aurora_locker_path.join(contract_output_path.iter().collect::<PathBuf>()),
+    )
+    .await?;
+    let result = serde_json::from_str(&s)?;
+    Ok(result)
 }
 
 fn json_lens<'a, T, F>(value: &'a serde_json::Value, keys: &[&str], interp: F) -> Option<T>
