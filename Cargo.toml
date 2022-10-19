@@ -22,7 +22,7 @@ bitflags = "1.3"
 borsh = "0.9"
 ethabi = "17.2"
 hex = "0.4"
-near-plugins = { git = "https://github.com/aurora-is-near/near-plugins", rev = "d822c2f051ccdc03b50f206650524daf43ae7526" }
+near-plugins = { git = "https://github.com/aurora-is-near/near-plugins", tag = "v0.0.1" }
 near-contract-standards = "4.0.0"
 near-sdk = "4.0.0"
 near-token-common = { path = "near-token-common" }

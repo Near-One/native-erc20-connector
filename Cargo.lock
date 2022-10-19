@@ -1797,8 +1797,9 @@ dependencies = [
 [[package]]
 name = "near-plugins"
 version = "0.1.0"
-source = "git+https://github.com/aurora-is-near/near-plugins?rev=d822c2f051ccdc03b50f206650524daf43ae7526#d822c2f051ccdc03b50f206650524daf43ae7526"
+source = "git+https://github.com/aurora-is-near/near-plugins?tag=v0.0.1#4be85a9472f6c789599345f47264511fce049fc9"
 dependencies = [
+ "bitflags",
  "near-plugins-derive",
  "near-sdk",
  "serde",
@@ -1807,7 +1808,7 @@ dependencies = [
 [[package]]
 name = "near-plugins-derive"
 version = "0.1.0"
-source = "git+https://github.com/aurora-is-near/near-plugins?rev=d822c2f051ccdc03b50f206650524daf43ae7526#d822c2f051ccdc03b50f206650524daf43ae7526"
+source = "git+https://github.com/aurora-is-near/near-plugins?tag=v0.0.1#4be85a9472f6c789599345f47264511fce049fc9"
 dependencies = [
  "darling",
  "proc-macro-crate 0.1.5",
@@ -1956,9 +1957,9 @@ dependencies = [
 
 [[package]]
 name = "near-sandbox-utils"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a968f1992f0f48dff8c1e793140e963cf17be67d71401ca3551d09ee1c6b72d5"
+checksum = "201b7e0c5fcff633fb53e743b16c6aea4110e531764ccaa215ea1382db940b45"
 dependencies = [
  "anyhow",
  "async-process",
@@ -2022,7 +2023,6 @@ name = "near-token-contract"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitflags",
  "near-contract-standards",
  "near-plugins",
  "near-sdk",
@@ -3606,8 +3606,9 @@ dependencies = [
 
 [[package]]
 name = "workspaces"
-version = "0.5.0"
-source = "git+https://github.com/near/workspaces-rs.git?rev=8b3356a29f71756d86840679d3ff162b885123c9#8b3356a29f71756d86840679d3ff162b885123c9"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbc74416d48b2deb83004a0fff9d856e46a026c156da4acc4feca044a0a33755"
 dependencies = [
  "async-process",
  "async-trait",

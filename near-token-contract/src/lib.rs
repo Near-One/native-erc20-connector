@@ -4,7 +4,6 @@ use near_contract_standards::fungible_token::metadata::{
     FungibleTokenMetadata, FungibleTokenMetadataProvider,
 };
 use near_contract_standards::fungible_token::FungibleToken;
-use near_plugins::events::AsEvent;
 use near_plugins::{access_control, access_control_any, AccessControlRole, AccessControllable};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
@@ -48,7 +47,7 @@ pub enum AclRole {
     MetadataUpdater,
 }
 
-#[access_control(role_type = "AclRole")]
+#[access_control(role_type(AclRole))]
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
@@ -90,14 +89,12 @@ impl Contract {
 
         // Make the factory acl super-admin and grant roles to it.
         assert!(
-            contract.__acl.init_super_admin(&factory),
+            contract.acl_init_super_admin(factory.clone()),
             "Failed to add factory as initial acl super-admin",
         );
         assert_eq!(
             Some(true),
-            contract
-                .__acl
-                .grant_role(AclRole::MetadataUpdater, &factory),
+            contract.acl_grant_role(AclRole::MetadataUpdater.into(), factory),
             "Failed to grant role to factory",
         );
 
