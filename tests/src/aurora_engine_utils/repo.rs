@@ -73,8 +73,7 @@ impl<T> AuroraEngineRepoActions<T> {
 
 impl<T: TryFrom<ActionOutput, Error = anyhow::Error>> AuroraEngineRepoActions<T> {
     pub async fn execute(self) -> anyhow::Result<T> {
-        let mutex_ref = &ENGINE_LOCK;
-        let _guard = mutex_ref.lock().await;
+        let _guard = ENGINE_LOCK.lock().await;
         let engine_path = Path::new(ENGINE_PATH);
         let mut output = ActionOutput::Unit;
         for action in self.actions {

@@ -42,19 +42,26 @@ library AuroraSdk {
 
     /// Create an instance of NEAR object. Requires the address at which
     /// wNEAR ERC20 token contract is deployed.
-    function initNear(IERC20 wNEAR) public pure returns (NEAR memory) {
-        return NEAR(false, wNEAR);
+    function initNear(IERC20 wNEAR) public returns (NEAR memory) {
+        NEAR memory near = NEAR(false, wNEAR);
+        near.wNEAR.approve(XCC_PRECOMPILE, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+        return near;
     }
 
     /// Default configuration for mainnet.
-    function mainnet() public pure returns (NEAR memory) {
-        return NEAR(false, IERC20(wNEAR_MAINNET));
+    function mainnet() public returns (NEAR memory) {
+        return initNear(IERC20(wNEAR_MAINNET));
     }
 
     /// Compute NEAR represtentative account for the given Aurora address.
     /// This is the NEAR account created by the cross contract call precompile.
     function nearRepresentative(address account) public returns (string memory) {
-        return string(abi.encodePacked(Utils.bytesToHex(abi.encodePacked((bytes20(account)))), ".", currentAccountId()));
+        return addressSubAccount(account, currentAccountId());
+    }
+
+    /// Prepends the given account ID with the given address (hex-encoded).
+    function addressSubAccount(address account, string memory accountId) public pure returns (string memory) {
+        return string(abi.encodePacked(Utils.bytesToHex(abi.encodePacked((bytes20(account)))), ".", accountId));
     }
 
     /// Compute implicity Aurora Address for the given NEAR account.
@@ -70,8 +77,8 @@ library AuroraSdk {
     }
 
     /// Get the promise result at the specified index.
-    function promiseResult(uint256 index) public returns (PromiseResult memory) {
-        (bool success, bytes memory returnData) = CURRENT_ACCOUNT_ID_PRECOMPILE.call("");
+    function promiseResult(uint256 index) public returns (PromiseResult memory result) {
+        (bool success, bytes memory returnData) = PROMISE_RESULT_PRECOMPILE.call("");
         require(success);
 
         Borsh.Data memory borsh = Borsh.from(returnData);
@@ -80,10 +87,16 @@ library AuroraSdk {
         require(index < length, "Index out of bounds");
 
         for (uint256 i = 0; i < index; i++) {
-            borsh.skipPromiseResult();
+            PromiseResultStatus status = PromiseResultStatus(uint8(borsh.decodeU8()));
+            if (status == PromiseResultStatus.Successful) {
+                borsh.skipBytes();
+            }
         }
 
-        return borsh.decodePromiseResult();
+        result.status = PromiseResultStatus(borsh.decodeU8());
+        if (result.status == PromiseResultStatus.Successful) {
+            result.output = borsh.decodeBytes();
+        }
     }
 
     /// Get the NEAR account id of the current contract. It is the account id of Aurora engine.
@@ -107,13 +120,17 @@ library AuroraSdk {
     /// Input is not checekd during promise creation. If it is invalid, the
     /// transaction will be scheduled either way, but it will fail during execution.
     function call(
-        NEAR memory near,
+        NEAR storage near,
         string memory targetAccountId,
         string memory method,
         bytes memory args,
         uint128 nearBalance,
         uint64 nearGas
     ) public returns (PromiseCreateArgs memory) {
+        /// Need to capture nearBalance before we modify it so that we don't
+        /// double-charge the user for their initialization cost.
+        PromiseCreateArgs memory promise_args = PromiseCreateArgs(targetAccountId, method, args, nearBalance, nearGas);
+
         if (!near.initialized) {
             /// If the contract needs to be initialized, we need to attach
             /// 2 NEAR (= 2 * 10^24 yoctoNEAR) to the promise.
@@ -125,12 +142,12 @@ library AuroraSdk {
             near.wNEAR.transferFrom(msg.sender, address(this), uint256(nearBalance));
         }
 
-        return PromiseCreateArgs(targetAccountId, method, args, nearBalance, nearGas);
+        return promise_args;
     }
 
     /// Similar to `call`. It is a wrapper that simplifies the creation of a promise
     /// to a controct inside `Aurora`.
-    function auroraCall(NEAR memory near, address target, bytes memory args, uint128 nearBalance, uint64 nearGas)
+    function auroraCall(NEAR storage near, address target, bytes memory args, uint128 nearBalance, uint64 nearGas)
         public
         returns (PromiseCreateArgs memory)
     {
@@ -163,6 +180,26 @@ library AuroraSdk {
     function transact(PromiseWithCallback memory nearPromise) public {
         (bool success, bytes memory returnData) =
             XCC_PRECOMPILE.call(nearPromise.encodeCrossContractCallArgs(ExecutionMode.Eager));
+
+        if (!success) {
+            revert(string(returnData));
+        }
+    }
+
+    /// Similar to `transact`, except the promise is not executed as part of the same transaction.
+    /// A separate transaction to execute the scheduled promise is needed.
+    function lazy_transact(PromiseCreateArgs memory nearPromise) public {
+        (bool success, bytes memory returnData) =
+            XCC_PRECOMPILE.call(nearPromise.encodeCrossContractCallArgs(ExecutionMode.Lazy));
+
+        if (!success) {
+            revert(string(returnData));
+        }
+    }
+
+    function lazy_transact(PromiseWithCallback memory nearPromise) public {
+        (bool success, bytes memory returnData) =
+            XCC_PRECOMPILE.call(nearPromise.encodeCrossContractCallArgs(ExecutionMode.Lazy));
 
         if (!success) {
             revert(string(returnData));

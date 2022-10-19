@@ -19,6 +19,11 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Install Foundry
+        uses: onbjerg/foundry-toolchain@v1
+        with:
+          version: nightly
+
       - uses: Swatinem/rust-cache@v1
         with:
           cache-on-failure: true
