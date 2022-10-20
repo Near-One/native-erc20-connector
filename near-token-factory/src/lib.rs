@@ -1,5 +1,7 @@
+use near_plugins::{access_control, access_control_any, AccessControlRole, AccessControllable};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, UnorderedMap};
+use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::json;
 use near_sdk::{
     env, near_bindgen, require, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
@@ -27,11 +29,21 @@ enum StorageKey {
     TokenMap,
 }
 
+#[derive(AccessControlRole, Deserialize, Serialize, Copy, Clone)]
+#[serde(crate = "near_sdk::serde")]
+pub enum AclRole {
+    UpdateTokenBinary,
+    UpdateTokenAdmin,
+}
+
+#[access_control(role_type(AclRole))]
 #[near_bindgen]
 #[derive(BorshSerialize, BorshDeserialize, PanicOnDefault)]
 pub struct Contract {
     /// Account id of the engine. It is expected to be `aurora`.
     aurora: AccountId,
+    /// Account id that will be used as admin for all deployed tokens.
+    token_admin: AccountId,
     /// WASM binary of the token contract.
     token_binary: LazyOption<Vec<u8>>,
     /// Version of the token contract.
@@ -43,37 +55,58 @@ pub struct Contract {
 }
 
 // TODO: Add pausable
-// TODO: Add access control
 #[near_bindgen]
 impl Contract {
     /// Initializes the contract. The locker account id MUST be the NEAR
     /// representative of the Aurora address of the locker contract created
     /// using the Cross Contract Call interface.
     #[init]
-    pub fn new(aurora: AccountId, locker: aurora_sdk::Address) -> Self {
+    pub fn new(aurora: AccountId, locker: aurora_sdk::Address, admin: Option<AccountId>) -> Self {
         require!(
             env::current_account_id().as_str().len() + 1 + 40 <= 63,
             ERR_INVALID_ACCOUNT
         );
 
-        Self {
+        // If not specified, the admin is the deployer of this contract.
+        let admin = admin.unwrap_or_else(env::predecessor_account_id);
+
+        let mut contract = Self {
             aurora,
+            token_admin: admin.clone(),
             token_binary: LazyOption::new(StorageKey::TokenBinary, None),
             token_binary_version: 0,
             tokens: UnorderedMap::new(StorageKey::TokenMap),
             locker,
-        }
+            __acl: Default::default(),
+        };
+
+        // Make the factory acl super-admin and grant roles to it.
+        require!(
+            contract.acl_init_super_admin(admin.clone()),
+            "Failed to add factory as initial acl super-admin",
+        );
+
+        require!(contract
+            .acl_grant_role(AclRole::UpdateTokenBinary.into(), admin)
+            .unwrap_or_default());
+
+        contract
     }
 
     /// Set WASM binary for the token contracts. This increases the token binary version,
     /// so all deployed contracts SHOULD be upgraded after calling this function. ONLY the
     /// `Owner` role can call this method.
+    #[access_control_any(roles(AclRole::UpdateTokenBinary))]
     pub fn set_token_binary(&mut self, binary: near_sdk::json_types::Base64VecU8) {
-        // TODO: Replace with Owner
-        near_sdk::assert_self();
-
         self.token_binary.set(&binary.into());
         self.token_binary_version += 1;
+    }
+
+    /// Replace the account id that will be admin for all new tokens. This has no effect on
+    /// tokens that were already deployed.
+    #[access_control_any(roles(AclRole::UpdateTokenAdmin))]
+    pub fn replace_token_admin(&mut self, new_admin: AccountId) {
+        self.token_admin = new_admin;
     }
 
     /// Get the most recent binary version or fails if no binary is available.

@@ -2007,6 +2007,7 @@ version = "1.0.0"
 dependencies = [
  "ethabi",
  "hex 0.4.3",
+ "near-plugins",
  "near-sdk",
  "near-token-common",
  "uint",
