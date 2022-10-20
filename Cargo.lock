@@ -1011,6 +1011,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs2"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9564fc758e15025b46aa6643b1b77d047d1a56a1aea6e01002ac0c7026876213"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "funty"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1850,14 +1860,15 @@ dependencies = [
 
 [[package]]
 name = "near-sandbox-utils"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4cf1e2b801709b9fe36806a3895ff63e85b37746b562bb8e4d266c7286b94d6"
+checksum = "201b7e0c5fcff633fb53e743b16c6aea4110e531764ccaa215ea1382db940b45"
 dependencies = [
  "anyhow",
  "async-process",
  "binary-install",
  "chrono",
+ "fs2",
  "hex 0.3.2",
  "home",
 ]
@@ -3485,8 +3496,9 @@ dependencies = [
 
 [[package]]
 name = "workspaces"
-version = "0.5.0"
-source = "git+https://github.com/near/workspaces-rs.git?rev=8b3356a29f71756d86840679d3ff162b885123c9#8b3356a29f71756d86840679d3ff162b885123c9"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbc74416d48b2deb83004a0fff9d856e46a026c156da4acc4feca044a0a33755"
 dependencies = [
  "async-process",
  "async-trait",
