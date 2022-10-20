@@ -93,10 +93,16 @@ impl Contract {
 
         // Set up access control.
         let super_admin = super_admin.unwrap_or_else(env::predecessor_account_id);
+
+        // Grant super admin role to the provided account.
         require!(
             contract.acl_init_super_admin(super_admin),
             "Failed to add factory as initial acl super-admin",
         );
+
+        // Grant MetadataUpdater role to the factory. This enables a trustless setup to set
+        // the metadata by any user. Super admin is responsible for adding a new user account
+        // with this role to provide icon and extra metadata.
         require!(
             contract
                 .__acl
