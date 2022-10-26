@@ -1,3 +1,5 @@
+use near_account_id::AccountId;
+use near_primitives::{errors::TxExecutionError, hash::CryptoHash};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tokio::io::AsyncWriteExt;
@@ -36,8 +38,32 @@ pub struct Event {
     pub kind: EventKind,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum EventKind {
-    Make { command: String },
-    InitConfig { new_config: crate::config::Config },
+    Make {
+        command: String,
+    },
+    InitConfig {
+        new_config: crate::config::Config,
+    },
+    NearTransactionSubmitted {
+        hash: CryptoHash,
+    },
+    NearTransactionSuccessful {
+        hash: CryptoHash,
+        kind: NearTransactionKind,
+    },
+    NearTransactionFailed {
+        hash: CryptoHash,
+        error: TxExecutionError,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum NearTransactionKind {
+    DeployCode {
+        account_id: AccountId,
+        new_code_hash: CryptoHash,
+        previous_code_hash: Option<CryptoHash>,
+    },
 }

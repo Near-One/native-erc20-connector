@@ -1,4 +1,5 @@
 use near_account_id::AccountId;
+use near_crypto::KeyFile;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -24,6 +25,13 @@ pub struct Config {
     /// If `true` then use the Aurora RPC to interact with the Aurora Engine, otherwise the
     /// Engine's `call` method will be used from the signer for `factory_account_id`.
     pub use_aurora_rpc: bool,
+    /// If `true` then allow the `deploy` command to continue even if there are modified
+    /// files in the repository.
+    pub allow_changed_files: bool,
+    /// If `true` then allow the `deploy` command to overwrite code already deployed
+    /// to the factory account. Otherwise, `deploy` requires the factory account
+    /// to not have any code already (but it must already exist).
+    pub allow_deploy_overwrite: bool,
 }
 
 impl Config {
@@ -39,6 +47,17 @@ impl Config {
         Ok(())
     }
 
+    pub fn get_near_key(&self) -> anyhow::Result<KeyFile> {
+        let key_path = self
+            .signing
+            .as_ref()
+            .ok_or_else(|| anyhow::Error::msg("Missing signing config"))?
+            .near_key_path
+            .as_str();
+        let key = KeyFile::from_file(Path::new(key_path))?;
+        Ok(key)
+    }
+
     pub fn testnet() -> Self {
         Self {
             near_rpc_url: "https://archival-rpc.testnet.near.org/".into(),
@@ -49,6 +68,8 @@ impl Config {
             signing: None,
             repository_root: None,
             use_aurora_rpc: false,
+            allow_changed_files: false,
+            allow_deploy_overwrite: false,
         }
     }
 }

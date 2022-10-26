@@ -1,9 +1,13 @@
 use clap::Parser;
+use std::sync::Arc;
 
 mod cli;
 mod config;
 mod deploy;
 mod log;
+mod near_rpc_ext;
+#[cfg(test)]
+mod tests;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -40,7 +44,13 @@ async fn handle_command(
     log: &mut log::Log,
 ) -> anyhow::Result<()> {
     match command {
-        cli::Command::Deploy => deploy::deploy(config, log).await?,
+        cli::Command::Deploy => {
+            let near = Arc::new(near_jsonrpc_client::JsonRpcClient::connect(
+                &config.near_rpc_url,
+            ));
+            let key = config.get_near_key()?;
+            deploy::deploy(config, near, &key, log).await?
+        }
         cli::Command::InitConfig => (),
     }
 

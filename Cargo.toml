@@ -13,6 +13,7 @@ version = "0.15.0"
 
 [workspace.dependencies]
 anyhow = "1.0"
+async-trait = "0.1.58"
 aurora-engine = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
 aurora-engine-precompiles = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
 aurora-engine-sdk = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
@@ -25,7 +26,11 @@ clap = { version = "4.0", features = ["derive"] }
 ethabi = "17.2"
 hex = "0.4"
 near-account-id = "0.15.0"
+near-crypto = "0.15.0"
 near-contract-standards = "4.0.0"
+near-jsonrpc-client = "0.4.0"
+near-jsonrpc-primitives = "0.15.0"
+near-primitives = "0.15.0"
 near-sdk = "4.0.0"
 near-token-common = { path = "near-token-common" }
 serde = { version = "1", features = ["derive"] }
