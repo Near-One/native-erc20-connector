@@ -1,9 +1,12 @@
 use crate::{
     config::Config,
-    log::{EventKind, Log, NearTransactionKind},
+    log::{AuroraTransactionError, AuroraTransactionKind, EventKind, Log, NearTransactionKind},
     near_rpc_ext::{self, client_like::ClientLike},
 };
-use near_primitives::{transaction, views::AccessKeyPermissionView};
+use aurora_engine::parameters::{SubmitResult, TransactionStatus};
+use aurora_engine_types::types::Address;
+use borsh::BorshDeserialize;
+use near_primitives::{hash::CryptoHash, transaction, views::AccessKeyPermissionView};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -12,9 +15,11 @@ use tokio::process::Command;
 
 /// Path to the factory wasm artifact relative to the repository root.
 const FACTORY_WASM_PATH: &str = "target/wasm32-unknown-unknown/release/near_token_factory.wasm";
+const TOKEN_WASM_PATH: &str = "target/wasm32-unknown-unknown/release/near_token_contract.wasm";
+const MAX_NEAR_GAS: u64 = 300_000_000_000_000;
 
 pub async fn deploy<C: ClientLike>(
-    config: &Config,
+    config: &mut Config,
     near: Arc<C>,
     key: &near_crypto::KeyFile,
     log: &mut Log,
@@ -67,7 +72,7 @@ pub async fn deploy<C: ClientLike>(
     // Confirm we have the access key for the factory account (and get the nonce at the same time)
     let key_info = maybe_key_info?;
     let nonce = if let AccessKeyPermissionView::FullAccess = key_info.data.permission {
-        key_info.data.nonce
+        key_info.data.nonce + 1
     } else {
         return Err(anyhow::Error::msg("FullAccess key required for deployment"));
     };
@@ -135,26 +140,386 @@ pub async fn deploy<C: ClientLike>(
         }
     }
 
-    // TODO: deploy locker contract to Aurora
-    // TODO: initialize the factory contract
+    // Deploy libraries needed for Locker
+    let codec_bytes = read_contract_bytes(
+        &repository_root,
+        &["aurora-locker", "out", "Codec.sol", "Codec.json"],
+    )
+    .await?;
+    let codec_address = deploy_evm_contract(
+        codec_bytes,
+        config,
+        near.clone(),
+        &signer,
+        nonce + 1,
+        key_info.block_hash,
+        log,
+    )
+    .await?;
+
+    let utils_bytes = read_contract_bytes(
+        &repository_root,
+        &["aurora-locker", "out", "Utils.sol", "Utils.json"],
+    )
+    .await?;
+    let utils_address = deploy_evm_contract(
+        utils_bytes,
+        config,
+        near.clone(),
+        &signer,
+        nonce + 2,
+        key_info.block_hash,
+        log,
+    )
+    .await?;
+
+    let sdk_make_cmd = format!(
+        "CODEC=0x{} UTILS=0x{} aurora-locker-sdk",
+        codec_address.encode(),
+        utils_address.encode()
+    );
+    make(sdk_make_cmd, &repository_root, log)?.await??;
+
+    let aurora_sdk_bytes = read_contract_bytes(
+        &repository_root,
+        &["aurora-locker", "out", "AuroraSdk.sol", "AuroraSdk.json"],
+    )
+    .await?;
+    let aurora_sdk_address = deploy_evm_contract(
+        aurora_sdk_bytes,
+        config,
+        near.clone(),
+        &signer,
+        nonce + 3,
+        key_info.block_hash,
+        log,
+    )
+    .await?;
+
+    // Build and deploy Locker
+    let locker_build_command = format!(
+        "CODEC=0x{} SDK=0x{} aurora-locker-with-libs",
+        codec_address.encode(),
+        aurora_sdk_address.encode()
+    );
+    make(locker_build_command, &repository_root, log)?.await??;
+
+    let locker_bytes = {
+        let artifact_path = create_forge_artifact_path(
+            &repository_root,
+            &["aurora-locker", "out", "Locker.sol", "Locker.json"],
+        );
+        let artifact = read_forge_artifact(&artifact_path).await?;
+        let code = parse_contract_bytes(&artifact, &artifact_path)?;
+        let abi = parse_contract_abi(&artifact, &artifact_path)?;
+        let constructor = abi
+            .constructor()
+            .ok_or_else(|| anyhow::Error::msg("Expected constructor for Locker contract"))?;
+        constructor
+            .encode_input(
+                code,
+                &[
+                    ethabi::Token::String(config.factory_account_id.as_str().into()),
+                    ethabi::Token::Address(config.wnear_address.0.into()),
+                ],
+            )
+            .map_err(|e| {
+                anyhow::Error::msg(format!(
+                    "Failed to encode arguments for Locker constructor: {:?}",
+                    e
+                ))
+            })?
+    };
+    let locker_address = deploy_evm_contract(
+        locker_bytes,
+        config,
+        near.clone(),
+        &signer,
+        nonce + 4,
+        key_info.block_hash,
+        log,
+    )
+    .await?;
+
+    // Update the config with the new locker address
+    let config_locker_address = Some(near_token_common::Address(locker_address.raw().0));
+    log.push(EventKind::ModifyConfigLockerAddress {
+        old_value: config.locker_address.clone(),
+        new_value: config_locker_address.clone(),
+    });
+    config.locker_address = config_locker_address;
+
+    // Initialize Factory contract now that we know the Locker address
+    let args = serde_json::json!({
+        "locker": locker_address.encode(),
+        "aurora": config.aurora_account_id.as_str(),
+    });
+    factory_function_call(
+        "new",
+        args,
+        nonce + 5,
+        key_info.block_hash,
+        config,
+        near.clone(),
+        &signer,
+        log,
+    )
+    .await?;
+
+    // Set the token binary in the Factory
+    let token_code = tokio::fs::read(repository_root.join(TOKEN_WASM_PATH)).await?;
+    let args = serde_json::json!({
+        "binary": base64::encode(token_code),
+    });
+    factory_function_call(
+        "set_token_binary",
+        args,
+        nonce + 6,
+        key_info.block_hash,
+        config,
+        near,
+        &signer,
+        log,
+    )
+    .await?;
 
     Ok(())
 }
 
-/// Spawning a task allows running multiple `make` commands in parallel.
-fn make(
-    command: &'static str,
-    repository_root: &PathBuf,
+#[allow(clippy::too_many_arguments)]
+async fn factory_function_call<C: ClientLike>(
+    method: &str,
+    args: serde_json::Value,
+    nonce: u64,
+    block_hash: CryptoHash,
+    config: &Config,
+    near: Arc<C>,
+    signer: &near_crypto::InMemorySigner,
     log: &mut Log,
-) -> anyhow::Result<tokio::task::JoinHandle<anyhow::Result<()>>> {
+) -> anyhow::Result<()> {
+    let tx = transaction::Transaction {
+        signer_id: config.factory_account_id.clone(),
+        public_key: signer.public_key.clone(),
+        nonce,
+        receiver_id: config.factory_account_id.clone(),
+        block_hash,
+        actions: vec![transaction::Action::FunctionCall(
+            transaction::FunctionCallAction {
+                method_name: method.into(),
+                args: serde_json::to_vec(&args)?,
+                gas: MAX_NEAR_GAS,
+                deposit: 0,
+            },
+        )],
+    };
+
+    let tx_hash = near_rpc_ext::broadcast_tx_async(tx.sign(signer))
+        .spawn(near.clone())
+        .await??;
+    log.push(EventKind::NearTransactionSubmitted { hash: tx_hash });
+
+    let tx_status =
+        near_rpc_ext::wait_tx_executed(config.factory_account_id.clone(), tx_hash, near.as_ref())
+            .await?;
+
+    match tx_status {
+        Ok(_) => {
+            log.push(EventKind::NearTransactionSuccessful {
+                hash: tx_hash,
+                kind: NearTransactionKind::FunctionCall {
+                    account_id: config.factory_account_id.clone(),
+                    method: method.into(),
+                    args: serde_json::to_string(&args)?,
+                },
+            });
+            Ok(())
+        }
+        Err(e) => {
+            let error_message = format!("Factory `{}` transaction failed: {:?}", method, e);
+            log.push(EventKind::NearTransactionFailed {
+                hash: tx_hash,
+                error: e,
+            });
+            Err(anyhow::Error::msg(error_message))
+        }
+    }
+}
+
+async fn read_contract_bytes(
+    repository_root: &Path,
+    contract_output_path: &[&str],
+) -> anyhow::Result<Vec<u8>> {
+    let artifact_path = create_forge_artifact_path(repository_root, contract_output_path);
+    let artifact = read_forge_artifact(&artifact_path).await?;
+    parse_contract_bytes(&artifact, &artifact_path)
+}
+
+fn parse_contract_bytes(
+    artifact: &serde_json::Value,
+    artifact_path: &Path,
+) -> anyhow::Result<Vec<u8>> {
+    let code_hex = artifact
+        .as_object()
+        .and_then(|x| x.get("bytecode"))
+        .and_then(|x| x.as_object())
+        .and_then(|x| x.get("object"))
+        .and_then(|x| x.as_str())
+        .ok_or_else(|| anyhow::Error::msg("Failed to parse forge output"))?;
+    let code_hex = code_hex.strip_prefix("0x").unwrap_or(code_hex);
+    let code = hex::decode(code_hex).map_err(|e| {
+        anyhow::Error::msg(format!(
+            "Failed to parse compiled bytecode for {:?}: {:?}",
+            artifact_path, e
+        ))
+    })?;
+    Ok(code)
+}
+
+fn parse_contract_abi(
+    artifact: &serde_json::Value,
+    artifact_path: &Path,
+) -> anyhow::Result<ethabi::Contract> {
+    let abi = artifact
+        .as_object()
+        .and_then(|x| x.get("abi"))
+        .ok_or_else(|| anyhow::Error::msg("Failed to parse forge output"))?;
+    let abi = serde_json::from_value(abi.clone()).map_err(|e| {
+        anyhow::Error::msg(format!(
+            "Failed to parse ABI for {:?}: {:?}",
+            artifact_path, e
+        ))
+    })?;
+    Ok(abi)
+}
+
+fn create_forge_artifact_path(repository_root: &Path, contract_output_path: &[&str]) -> PathBuf {
+    repository_root.join(contract_output_path.iter().collect::<PathBuf>())
+}
+
+async fn read_forge_artifact(artifact_path: &Path) -> anyhow::Result<serde_json::Value> {
+    let s = tokio::fs::read_to_string(&artifact_path).await?;
+    let artifact: serde_json::Value = serde_json::from_str(&s).map_err(|e| {
+        anyhow::Error::msg(format!(
+            "Failed to read forge artifact {:?}: {:?}",
+            artifact_path, e
+        ))
+    })?;
+    Ok(artifact)
+}
+
+async fn deploy_evm_contract<C: ClientLike>(
+    contract_bytes: Vec<u8>,
+    config: &Config,
+    near: Arc<C>,
+    signer: &near_crypto::InMemorySigner,
+    nonce: u64,
+    block_hash: CryptoHash,
+    log: &mut Log,
+) -> anyhow::Result<Address> {
+    if config.use_aurora_rpc {
+        return Err(anyhow::Error::msg("Aurora RPC not yet supported"));
+    }
+
+    let deploy_tx = transaction::Transaction {
+        signer_id: config.factory_account_id.clone(),
+        public_key: signer.public_key.clone(),
+        nonce,
+        receiver_id: config.aurora_account_id.clone(),
+        block_hash,
+        actions: vec![transaction::Action::FunctionCall(
+            transaction::FunctionCallAction {
+                method_name: "deploy_code".into(),
+                args: contract_bytes,
+                gas: MAX_NEAR_GAS,
+                deposit: 0,
+            },
+        )],
+    };
+    let tx_hash = near_rpc_ext::broadcast_tx_async(deploy_tx.sign(signer))
+        .spawn(near.clone())
+        .await??;
+    log.push(EventKind::NearTransactionSubmitted { hash: tx_hash });
+
+    let tx_status =
+        near_rpc_ext::wait_tx_executed(config.factory_account_id.clone(), tx_hash, near.as_ref())
+            .await?;
+    match tx_status {
+        Ok(return_bytes) => {
+            let result = SubmitResult::try_from_slice(&return_bytes).map_err(|e| {
+                anyhow::Error::msg(format!(
+                    "Failed to parse SubmitResult from Engine return: {:?}",
+                    e
+                ))
+            })?;
+            match result.status {
+                TransactionStatus::Succeed(address_bytes) => {
+                    let address = Address::try_from_slice(&address_bytes).map_err(|e| {
+                        anyhow::Error::msg(format!(
+                            "Failed to get Address from Engine result: {:?}",
+                            e
+                        ))
+                    })?;
+                    log.push(EventKind::AuroraTransactionSuccessful {
+                        near_hash: Some(tx_hash),
+                        aurora_hash: None,
+                        kind: AuroraTransactionKind::DeployContract { address },
+                    });
+                    Ok(address)
+                }
+                TransactionStatus::Revert(revert_bytes) => {
+                    let error_message = format!(
+                        "Deploy Aurora EVM contract reverted with bytes 0x{:?}",
+                        hex::encode(&revert_bytes)
+                    );
+                    log.push(EventKind::AuroraTransactionFailed {
+                        near_hash: Some(tx_hash),
+                        aurora_hash: None,
+                        error: AuroraTransactionError::Revert {
+                            bytes: revert_bytes,
+                        },
+                    });
+                    Err(anyhow::Error::msg(error_message))
+                }
+                other => {
+                    let error_message = format!("Deploy Aurora EVM contract error: {:?}", other);
+                    log.push(EventKind::AuroraTransactionFailed {
+                        near_hash: Some(tx_hash),
+                        aurora_hash: None,
+                        error: AuroraTransactionError::from_status(other).unwrap(),
+                    });
+                    Err(anyhow::Error::msg(error_message))
+                }
+            }
+        }
+        Err(e) => {
+            let error_message = format!("Deploy Aurora EVM contract failed: {:?}", e);
+            log.push(EventKind::NearTransactionFailed {
+                hash: tx_hash,
+                error: e,
+            });
+            Err(anyhow::Error::msg(error_message))
+        }
+    }
+}
+
+/// Spawning a task allows running multiple `make` commands in parallel.
+fn make<T>(
+    command: T,
+    repository_root: &Path,
+    log: &mut Log,
+) -> anyhow::Result<tokio::task::JoinHandle<anyhow::Result<()>>>
+where
+    T: std::fmt::Display + AsRef<str> + Send + Sync + 'static,
+{
+    let args = command.as_ref().split(' ');
     let child = Command::new("make")
         .current_dir(repository_root)
-        .arg(command)
+        .args(args)
         .stderr(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()?;
     log.push(EventKind::Make {
-        command: command.into(),
+        command: command.as_ref().into(),
     });
     let task = tokio::task::spawn(async move {
         let output = child.wait_with_output().await?;

@@ -1,6 +1,8 @@
 {
   "near_rpc_url": "https://archival-rpc.testnet.near.org/",
   "aurora_rpc_url": null,
+  "aurora_account_id": "aurora",
+  "wnear_address": "0x4861825e75ab14553e5af711ebbe6873d369d146",
   "factory_account_id": "factory.testnet",
   "locker_address": null,
   "log_path": "connector_cli.log",

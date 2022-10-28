@@ -9,6 +9,10 @@ pub struct Config {
     pub near_rpc_url: String,
     /// URL for the RPC to interact with the Aurora Engine. Must be given if `use_aurora_rpc` is true.
     pub aurora_rpc_url: Option<String>,
+    /// AccountId of Aurora Engine contract
+    pub aurora_account_id: AccountId,
+    /// Address of the (bridged) wrapped Near contract on Aurora.
+    pub wnear_address: near_token_common::types::Address,
     /// AccountId where `near-token-factory` is deployed (or will be deployed).
     pub factory_account_id: AccountId,
     /// Aurora Address where `aurora-locker` is deployed,
@@ -62,6 +66,13 @@ impl Config {
         Self {
             near_rpc_url: "https://archival-rpc.testnet.near.org/".into(),
             aurora_rpc_url: None,
+            aurora_account_id: "aurora".parse().unwrap(),
+            wnear_address: near_token_common::Address(
+                hex::decode("4861825e75ab14553e5af711ebbe6873d369d146")
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+            ),
             factory_account_id: "factory.testnet".parse().unwrap(),
             locker_address: None,
             log_path: "connector_cli.log".into(),

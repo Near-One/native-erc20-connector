@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut log = log::Log::default();
     let config_path = args.config_path.as_deref().unwrap_or("config.json");
-    let config = if let cli::Command::InitConfig = args.command {
+    let mut config = if let cli::Command::InitConfig = args.command {
         let config = config::Config::testnet();
         config.write_file(config_path).await?;
         log.push(crate::log::EventKind::InitConfig {
@@ -26,12 +26,17 @@ async fn main() -> anyhow::Result<()> {
         config::Config::from_file(config_path).await?
     };
 
-    let result = handle_command(args.command, &config, &mut log).await;
+    let result = handle_command(args.command, &mut config, &mut log).await;
 
     // Always write the logs, independent of whether the command completed successfully
     log.append_to_file(&config.log_path)
         .await
         .map_err(|e| anyhow::Error::msg(format!("Failed to write logs: {:?}", e)))?;
+
+    // If the command was successful then re-write the config (in case any changes were made)
+    if let Ok(()) = result {
+        config.write_file(config_path).await?;
+    }
 
     result?;
 
@@ -40,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
 
 async fn handle_command(
     command: cli::Command,
-    config: &crate::config::Config,
+    config: &mut crate::config::Config,
     log: &mut log::Log,
 ) -> anyhow::Result<()> {
     match command {

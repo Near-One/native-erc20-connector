@@ -8,8 +8,14 @@ rust-version.workspace = true
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
+aurora-engine.workspace = true
+aurora-engine-types.workspace = true
+base64.workspace = true
+borsh.workspace = true
 chrono.workspace = true
 clap.workspace = true
+ethabi.workspace = true
+hex.workspace = true
 near-account-id.workspace = true
 near-crypto.workspace = true
 near-jsonrpc-client.workspace = true

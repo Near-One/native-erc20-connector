@@ -1,3 +1,5 @@
+use aurora_engine::parameters::TransactionStatus;
+use aurora_engine_types::types::Address;
 use near_account_id::AccountId;
 use near_primitives::{errors::TxExecutionError, hash::CryptoHash};
 use serde::{Deserialize, Serialize};
@@ -46,6 +48,10 @@ pub enum EventKind {
     InitConfig {
         new_config: crate::config::Config,
     },
+    ModifyConfigLockerAddress {
+        old_value: Option<near_token_common::Address>,
+        new_value: Option<near_token_common::Address>,
+    },
     NearTransactionSubmitted {
         hash: CryptoHash,
     },
@@ -57,6 +63,41 @@ pub enum EventKind {
         hash: CryptoHash,
         error: TxExecutionError,
     },
+    AuroraTransactionSuccessful {
+        near_hash: Option<CryptoHash>,
+        aurora_hash: Option<CryptoHash>,
+        kind: AuroraTransactionKind,
+    },
+    AuroraTransactionFailed {
+        near_hash: Option<CryptoHash>,
+        aurora_hash: Option<CryptoHash>,
+        error: AuroraTransactionError,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum AuroraTransactionError {
+    Revert {
+        #[serde(with = "serde_hex")]
+        bytes: Vec<u8>,
+    },
+    OutOfGas,
+    OutOfFund,
+    OutOfOffset,
+    CallTooDeep,
+}
+
+impl AuroraTransactionError {
+    pub fn from_status(status: TransactionStatus) -> Option<Self> {
+        match status {
+            TransactionStatus::Succeed(_) => None,
+            TransactionStatus::Revert(bytes) => Some(Self::Revert { bytes }),
+            TransactionStatus::OutOfGas => Some(Self::OutOfGas),
+            TransactionStatus::OutOfFund => Some(Self::OutOfFund),
+            TransactionStatus::OutOfOffset => Some(Self::OutOfOffset),
+            TransactionStatus::CallTooDeep => Some(Self::CallTooDeep),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -66,4 +107,35 @@ pub enum NearTransactionKind {
         new_code_hash: CryptoHash,
         previous_code_hash: Option<CryptoHash>,
     },
+    FunctionCall {
+        account_id: AccountId,
+        method: String,
+        args: String,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum AuroraTransactionKind {
+    DeployContract { address: Address },
+}
+
+mod serde_hex {
+    use serde::{de::Error, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(input: &[u8], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&hex::encode(input))
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        let no_prefix = s.strip_prefix("0x").unwrap_or(&s);
+        let bytes = hex::decode(no_prefix).map_err(Error::custom)?;
+        Ok(bytes)
+    }
 }
