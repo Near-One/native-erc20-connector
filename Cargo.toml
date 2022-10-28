@@ -14,7 +14,7 @@ version = "0.15.0"
 [workspace.dependencies]
 anyhow = "1.0"
 async-trait = "0.1.58"
-aurora-engine = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
+aurora-engine = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0", features = ["impl-serde"] }
 aurora-engine-precompiles = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
 aurora-engine-sdk = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }
 aurora-engine-transactions = { git = "https://github.com/aurora-is-near/aurora-engine.git", tag = "2.7.0" }

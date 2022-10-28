@@ -14,5 +14,10 @@ pub struct Args {
 pub enum Command {
     /// Write a default config to `config_path`
     InitConfig,
+    /// Deploy the Locker and Factory contracts on-chain
     Deploy,
+    /// Add a new Aurora-native ERC-20 token to the connector. This will create a NEP-141
+    /// counterpart of the token on NEAR. This command will fail if the given address is
+    /// already registered with the native token connector.
+    CreateToken { address: String },
 }

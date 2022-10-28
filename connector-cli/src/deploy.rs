@@ -1,11 +1,10 @@
 use crate::{
     config::Config,
-    log::{AuroraTransactionError, AuroraTransactionKind, EventKind, Log, NearTransactionKind},
-    near_rpc_ext::{self, client_like::ClientLike},
+    log::{AuroraTransactionKind, EventKind, Log, NearTransactionKind},
+    near_rpc_ext::{self, client_like::ClientLike, MAX_NEAR_GAS},
 };
-use aurora_engine::parameters::{SubmitResult, TransactionStatus};
+use aurora_engine::parameters::TransactionStatus;
 use aurora_engine_types::types::Address;
-use borsh::BorshDeserialize;
 use near_primitives::{hash::CryptoHash, transaction, views::AccessKeyPermissionView};
 use std::{
     path::{Path, PathBuf},
@@ -16,7 +15,6 @@ use tokio::process::Command;
 /// Path to the factory wasm artifact relative to the repository root.
 const FACTORY_WASM_PATH: &str = "target/wasm32-unknown-unknown/release/near_token_factory.wasm";
 const TOKEN_WASM_PATH: &str = "target/wasm32-unknown-unknown/release/near_token_contract.wasm";
-const MAX_NEAR_GAS: u64 = 300_000_000_000_000;
 
 pub async fn deploy<C: ClientLike>(
     config: &mut Config,
@@ -445,12 +443,11 @@ async fn deploy_evm_contract<C: ClientLike>(
             .await?;
     match tx_status {
         Ok(return_bytes) => {
-            let result = SubmitResult::try_from_slice(&return_bytes).map_err(|e| {
-                anyhow::Error::msg(format!(
-                    "Failed to parse SubmitResult from Engine return: {:?}",
-                    e
-                ))
-            })?;
+            let result = near_rpc_ext::aurora_engine_utils::assume_successful_submit_result(
+                tx_hash,
+                &return_bytes,
+                log,
+            )?;
             match result.status {
                 TransactionStatus::Succeed(address_bytes) => {
                     let address = Address::try_from_slice(&address_bytes).map_err(|e| {
@@ -466,29 +463,7 @@ async fn deploy_evm_contract<C: ClientLike>(
                     });
                     Ok(address)
                 }
-                TransactionStatus::Revert(revert_bytes) => {
-                    let error_message = format!(
-                        "Deploy Aurora EVM contract reverted with bytes 0x{:?}",
-                        hex::encode(&revert_bytes)
-                    );
-                    log.push(EventKind::AuroraTransactionFailed {
-                        near_hash: Some(tx_hash),
-                        aurora_hash: None,
-                        error: AuroraTransactionError::Revert {
-                            bytes: revert_bytes,
-                        },
-                    });
-                    Err(anyhow::Error::msg(error_message))
-                }
-                other => {
-                    let error_message = format!("Deploy Aurora EVM contract error: {:?}", other);
-                    log.push(EventKind::AuroraTransactionFailed {
-                        near_hash: Some(tx_hash),
-                        aurora_hash: None,
-                        error: AuroraTransactionError::from_status(other).unwrap(),
-                    });
-                    Err(anyhow::Error::msg(error_message))
-                }
+                _ => unreachable!(), // `assume_successful_submit_result` would error out if not `TransactionStatus::Succeed`
             }
         }
         Err(e) => {

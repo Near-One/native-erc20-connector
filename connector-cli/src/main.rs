@@ -1,8 +1,10 @@
+use aurora_engine_types::types::Address;
 use clap::Parser;
 use std::sync::Arc;
 
 mod cli;
 mod config;
+mod create_token;
 mod deploy;
 mod log;
 mod near_rpc_ext;
@@ -55,6 +57,17 @@ async fn handle_command(
             ));
             let key = config.get_near_key()?;
             deploy::deploy(config, near, &key, log).await?
+        }
+        cli::Command::CreateToken { address } => {
+            let parsed_address = Address::decode(address.strip_prefix("0x").unwrap_or(&address))
+                .map_err(|e| {
+                    anyhow::Error::msg(format!("Invalid address {} provided: {:?}", address, e))
+                })?;
+            let near = Arc::new(near_jsonrpc_client::JsonRpcClient::connect(
+                &config.near_rpc_url,
+            ));
+            let key = config.get_near_key()?;
+            create_token::create_token(parsed_address, config, near, &key, log).await?
         }
         cli::Command::InitConfig => (),
     }

@@ -176,6 +176,7 @@ dependencies = [
  "hex 0.4.3",
  "rjson",
  "rlp",
+ "serde",
  "wee_alloc",
 ]
 
@@ -219,6 +220,7 @@ dependencies = [
  "aurora-engine-types",
  "evm",
  "rlp",
+ "serde",
 ]
 
 [[package]]

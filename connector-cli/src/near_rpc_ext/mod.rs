@@ -16,8 +16,11 @@ use near_primitives::{
 use std::{marker::PhantomData, sync::Arc};
 use tokio::task::JoinHandle;
 
+pub mod aurora_engine_utils;
 pub mod client_like;
 pub mod type_munging;
+
+pub const MAX_NEAR_GAS: u64 = 300_000_000_000_000;
 
 pub fn query_access_key(
     account_id: AccountId,

@@ -2,12 +2,13 @@ use crate::{
     config::Config,
     log::{AuroraTransactionKind, EventKind, Log, NearTransactionKind},
     near_rpc_ext::client_like::mock::{AllMethods, MockClient},
+    tests::{default_transaction, default_transaction_outcome},
 };
 use aurora_engine::parameters::{SubmitResult, TransactionStatus};
 use aurora_engine_types::types::Address;
 use borsh::BorshSerialize;
 use near_account_id::AccountId;
-use near_primitives::{hash::CryptoHash, views};
+use near_primitives::hash::CryptoHash;
 
 #[tokio::test]
 async fn test_deploy() {
@@ -223,13 +224,13 @@ async fn test_deploy() {
         })
     );
     // And it was successful
-    matches!(
+    assert!(matches!(
         log.events.get(19).map(|e| &e.kind),
         Some(&EventKind::NearTransactionSuccessful {
             hash,
             kind: NearTransactionKind::FunctionCall { .. }
         }) if hash == params.factory_set_token_tx_hash
-    );
+    ));
 }
 
 #[derive(Debug, Clone)]
@@ -659,36 +660,4 @@ fn default_client(
     };
 
     MockClient::new(move |method: AllMethods| state.process_client_method(method))
-}
-
-fn default_transaction() -> views::SignedTransactionView {
-    views::SignedTransactionView {
-        signer_id: "signer.near".parse().unwrap(),
-        public_key: near_crypto::PublicKey::empty(near_crypto::KeyType::ED25519),
-        nonce: 0,
-        receiver_id: "receiver.near".parse().unwrap(),
-        actions: Vec::new(),
-        signature: near_crypto::Signature::empty(near_crypto::KeyType::ED25519),
-        hash: Default::default(),
-    }
-}
-
-fn default_transaction_outcome() -> views::ExecutionOutcomeWithIdView {
-    views::ExecutionOutcomeWithIdView {
-        proof: Vec::new(),
-        block_hash: Default::default(),
-        id: Default::default(),
-        outcome: views::ExecutionOutcomeView {
-            logs: Vec::new(),
-            receipt_ids: Vec::new(),
-            gas_burnt: 0,
-            tokens_burnt: 0,
-            executor_id: "executor.near".parse().unwrap(),
-            status: views::ExecutionStatusView::SuccessValue(Vec::new()),
-            metadata: views::ExecutionMetadataView {
-                version: 0,
-                gas_profile: None,
-            },
-        },
-    }
 }

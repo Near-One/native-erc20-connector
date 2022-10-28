@@ -1,4 +1,4 @@
-use aurora_engine::parameters::TransactionStatus;
+use aurora_engine::parameters::{SubmitResult, TransactionStatus};
 use aurora_engine_types::types::Address;
 use near_account_id::AccountId;
 use near_primitives::{errors::TxExecutionError, hash::CryptoHash};
@@ -116,7 +116,13 @@ pub enum NearTransactionKind {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AuroraTransactionKind {
-    DeployContract { address: Address },
+    DeployContract {
+        address: Address,
+    },
+    ContractCall {
+        address: Address,
+        result: SubmitResult,
+    },
 }
 
 mod serde_hex {
