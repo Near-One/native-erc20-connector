@@ -18,6 +18,12 @@ near-token-contract:
 aurora-locker:
 	cd aurora-locker; $(FORGE) build
 
+aurora-locker-sdk:
+	cd aurora-locker; $(FORGE) build --libraries src/Codec.sol:Codec:$(CODEC) --libraries src/Utils.sol:Utils:$(UTILS)
+
+aurora-locker-with-libs:
+	cd aurora-locker; $(FORGE) build --libraries src/Codec.sol:Codec:$(CODEC) --libraries src/AuroraSdk.sol:AuroraSdk:$(SDK)
+
 test:
 	$(CARGO) test
 
@@ -35,4 +41,4 @@ check-clippy:
 clean:
 	$(CARGO) clean
 
-.PHONY: check clean near-token-factory near-token-contract aurora-locker check-compile check-fmt check-clippy test
+.PHONY: check clean near-token-factory near-token-contract aurora-locker aurora-locker-sdk aurora-locker-with-libs check-compile check-fmt check-clippy test
