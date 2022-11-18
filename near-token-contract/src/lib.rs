@@ -100,7 +100,7 @@ impl Contract {
         require!(
             contract
                 .__acl
-                .grant_role_unchecked(AclRole::MetadataUpdater.into(), &factory),
+                .grant_role_unchecked(AclRole::MetadataUpdater, &factory),
             "Failed to grant role to factory",
         );
 
