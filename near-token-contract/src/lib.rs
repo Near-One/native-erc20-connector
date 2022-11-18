@@ -259,8 +259,6 @@ impl Contract {
     /// from the locker in Aurora.
     #[access_control_any(roles(AclRole::MetadataUpdater))]
     pub fn update_metadata(&mut self, metadata: aurora_sdk::UpdateFungibleTokenMetadata) {
-        self.assert_factory();
-
         let aurora_sdk::UpdateFungibleTokenMetadata {
             name,
             symbol,
