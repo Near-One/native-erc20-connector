@@ -168,7 +168,9 @@ async fn test_near_token_contract_acl() -> anyhow::Result<()> {
     // Initialize the contract.
     contract
         .call("new")
-        .args_json(())
+        .args_json(json!({
+            "super_admin": Some("token_admin"),
+        }))
         .deposit(near_sdk::ONE_NEAR)
         .max_gas()
         .transact()
