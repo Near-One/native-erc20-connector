@@ -88,13 +88,12 @@ impl Contract {
         contract.token.storage_deposit(Some(factory.clone()), None);
 
         // Make the factory acl super-admin and grant roles to it.
-        assert!(
+        require!(
             contract.acl_init_super_admin(factory.clone()),
             "Failed to add factory as initial acl super-admin",
         );
-        assert_eq!(
-            Some(true),
-            contract.acl_grant_role(AclRole::MetadataUpdater.into(), factory),
+        require!(
+            Some(true) == contract.acl_grant_role(AclRole::MetadataUpdater.into(), factory),
             "Failed to grant role to factory",
         );
 
