@@ -1,5 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, UnorderedMap};
+use near_sdk::serde_json::json;
 use near_sdk::{
     env, near_bindgen, require, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
 };
@@ -104,7 +105,9 @@ impl Contract {
             .deploy_contract(binary)
             .function_call(
                 "new".to_string(),
-                vec![],
+                json!({ "super_admin": None::<AccountId> })
+                    .to_string()
+                    .into_bytes(),
                 TOKEN_STORAGE_DEPOSIT_COST,
                 TOKEN_DEPLOYMENT_COST,
             )
