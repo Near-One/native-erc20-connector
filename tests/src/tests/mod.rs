@@ -1,4 +1,5 @@
 use crate::{
+    acl_utils::{call_access_controlled_method, call_acl_has_role},
     aurora_engine_utils::{self, erc20, erc20::ERC20DeployedAt, repo::AuroraEngineRepo},
     aurora_locker_utils::{self, LockerDeployedAt},
     nep141_utils,
@@ -12,6 +13,8 @@ use aurora_engine_types::{
     types::{Address, NearGas, Wei, Yocto},
 };
 use borsh::BorshSerialize;
+use near_sdk::serde_json::json;
+use near_token_common::UpdateFungibleTokenMetadata;
 
 mod promise_result;
 
@@ -153,6 +156,53 @@ async fn test_deploy_token_factory() {
     let _factory = TokenFactory::deploy(&worker, locker_address, engine.inner.id())
         .await
         .unwrap();
+}
+
+#[tokio::test]
+async fn test_near_token_contract_acl() -> anyhow::Result<()> {
+    // Spin up a sandbox, compile, and deploy `near-token-contract`.
+    let worker = workspaces::sandbox().await?;
+    let wasm = TokenFactory::compile_token().await?;
+    let contract = worker.dev_deploy(&wasm).await?;
+
+    // Initialize the contract.
+    contract
+        .call("new")
+        .args_json(json!({
+            "super_admin": Some("token_admin"),
+        }))
+        .deposit(near_sdk::ONE_NEAR)
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Calling access controlled method from account without role fails.
+    let account_no_roles = worker.dev_create_account().await?;
+    call_access_controlled_method(
+        &account_no_roles,
+        &contract,
+        "update_metadata",
+        json!({ "metadata": UpdateFungibleTokenMetadata::default() }),
+    )
+    .await?
+    .assert_acl_failure();
+
+    // Calling access controlled method from account with permission succeeds.
+    call_access_controlled_method(
+        contract.as_account(),
+        &contract,
+        "update_metadata",
+        json!({ "metadata": UpdateFungibleTokenMetadata::default() }),
+    )
+    .await?
+    .assert_success_unit_return();
+
+    // Calling a method provided by `#[access_controllable]`.
+    assert!(!call_acl_has_role(&contract, "MetadataUpdater", account_no_roles.id()).await?);
+    assert!(call_acl_has_role(&contract, "MetadataUpdater", contract.id()).await?);
+
+    Ok(())
 }
 
 #[tokio::test]
