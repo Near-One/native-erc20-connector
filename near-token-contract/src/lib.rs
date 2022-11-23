@@ -70,12 +70,12 @@ impl Contract {
     /// Method is payable since the factory needs to pay the storage to be
     /// registered automatically.
     ///
-    ///Optionally an account can be provided that is made access control super
-    ///admin. If `super_admin` is `None`, then the factory itself is made super
-    ///admin.
+    /// Optionally an account can be provided that is made access control super
+    /// admin. If `super_admin` is `None`, then the factory itself is made super
+    /// admin.
     ///
-    ///It grants [`AclRole::MetadataUpdater`] to the factory to enable a
-    ///trustless workflow for metadata updates, see [`Self::update_metadata`].
+    /// It grants [`AclRole::MetadataUpdater`] to the factory to enable a
+    /// trustless workflow for metadata updates, see [`Self::update_metadata`].
     #[init]
     #[payable]
     pub fn new(super_admin: Option<AccountId>) -> Self {
