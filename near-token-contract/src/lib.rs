@@ -70,12 +70,12 @@ impl Contract {
     /// Method is payable since the factory needs to pay the storage to be
     /// registered automatically.
     ///
-    ///Optionally an account can be provided that is made access control super
-    ///admin. If `super_admin` is `None`, then the factory itself is made super
-    ///admin.
+    /// Optionally an account can be provided that is made access control super
+    /// admin. If `super_admin` is `None`, then the factory itself is made super
+    /// admin.
     ///
-    ///It grants [`AclRole::MetadataUpdater`] to the factory to enable a
-    ///trustless workflow for metadata updates, see [`Self::update_metadata`].
+    /// It grants [`AclRole::MetadataUpdater`] to the factory to enable a
+    /// trustless workflow for metadata updates, see [`Self::update_metadata`].
     #[init]
     #[payable]
     pub fn new(super_admin: Option<AccountId>) -> Self {
@@ -93,10 +93,16 @@ impl Contract {
 
         // Set up access control.
         let super_admin = super_admin.unwrap_or_else(env::predecessor_account_id);
+
+        // Grant super admin role to the provided account.
         require!(
             contract.acl_init_super_admin(super_admin),
             "Failed to add factory as initial acl super-admin",
         );
+
+        // Grant MetadataUpdater role to the factory. This enables a trustless setup to set
+        // the metadata by any user. Super admin is responsible for adding a new user account
+        // with this role to provide icon and extra metadata.
         require!(
             contract
                 .__acl

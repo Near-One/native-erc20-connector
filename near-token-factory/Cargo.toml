@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 hex.workspace = true
+near-plugins.workspace = true
 near-sdk.workspace = true
 near-token-common.workspace = true
 uint.workspace = true
