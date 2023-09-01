@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use crate::{
     acl_utils::{call_access_controlled_method, call_acl_has_role},
     aurora_engine_utils::{self, erc20, erc20::ERC20DeployedAt, repo::AuroraEngineRepo},
@@ -14,6 +15,7 @@ use aurora_engine_types::{
 };
 use borsh::BorshSerialize;
 use near_sdk::serde_json::json;
+use workspaces::AccountId;
 use near_token_common::UpdateFungibleTokenMetadata;
 
 mod promise_result;
@@ -356,6 +358,221 @@ async fn test_native_token_connector() {
         evm_token_balance,
         (token_mint_amount - token_deposit_amount).into()
     );
+
+    // Withdraw the tokens from NEAR back to the EVM
+    let withdraw_outcome = user
+        .call(&token_account, "withdraw")
+        .args_json(serde_json::json!({
+            "receiver_id": user_address.encode(),
+            "amount": token_deposit_amount.to_string(),
+        }))
+        .max_gas()
+        .transact()
+        .await
+        .unwrap();
+    withdraw_outcome.into_result().unwrap();
+
+    // Verify the balance removed from NEAR
+    let balance = nep141_utils::ft_balance_of(&user, &token_account, user.id())
+        .await
+        .unwrap();
+    assert_eq!(balance, 0);
+
+    // Verify the tokens have been returned to the user in the EVM
+    let evm_token_balance = context
+        .engine
+        .erc20_balance_of(&context.erc20, user_address)
+        .await
+        .unwrap();
+    assert_eq!(evm_token_balance, token_mint_amount.into());
+}
+
+#[tokio::test]
+async fn test_evil_withdraw() {
+    let evil_init_balance = 1_000_000_000_000_000_000_000_000_u128;
+    let wnear_mint_amount = 5_000_000_000_000_000_000_000_000_u128;
+    let token_mint_amount = 0x_1000_0000_0000_0000_u128;
+    let token_deposit_amount = 0x_aaaa_bbbb_cccc_u128;
+    let context = NativeTokenConnectorTestContext::new().await.unwrap();
+    let user = context.worker.dev_create_account().await.unwrap();
+    let user_address = aurora_engine_sdk::types::near_account_to_evm_address(user.id().as_bytes());
+
+    let (_, sk) = context.worker.dev_generate().await;
+    let evil_user = context.worker.create_tla(AccountId::from_str("eu.test.near").unwrap(), sk).await.unwrap().unwrap();
+    let evil_user_address = aurora_engine_sdk::types::near_account_to_evm_address(evil_user.id().as_bytes());
+
+    let fake_token_account = evil_user.create_subaccount(&context.erc20.address.encode()).initial_balance(evil_init_balance).transact().await.unwrap().result;
+
+    // Mint ERC-20 tokens for user in EVM
+    let mint_result = context
+        .engine
+        .call_evm_contract(
+            context.erc20.address,
+            context.erc20.mint(user_address, token_mint_amount.into()),
+            Wei::zero(),
+        )
+        .await
+        .unwrap();
+    aurora_engine_utils::unwrap_success(mint_result.status).unwrap();
+
+    // Mint NEAR for user in EVM (a wNEAR balance is required to deploy a new token)
+    context
+        .engine
+        .mint_wnear(&context.wnear, user_address, wnear_mint_amount)
+        .await
+        .unwrap();
+
+    // Approve locker to take tokens from user
+    let approve_result = context
+        .engine
+        .call_evm_contract_with(
+            &user,
+            context.erc20.address,
+            context
+                .erc20
+                .approve(context.locker.address, token_mint_amount.into()),
+            Wei::zero(),
+        )
+        .await
+        .unwrap();
+    aurora_engine_utils::unwrap_success(approve_result.status).unwrap();
+
+    // Approve locker to take NEAR from user
+    let approve_result = context
+        .engine
+        .call_evm_contract_with(
+            &user,
+            context.wnear.aurora_token.address,
+            context
+                .wnear
+                .aurora_token
+                .approve(context.locker.address, wnear_mint_amount.into()),
+            Wei::zero(),
+        )
+        .await
+        .unwrap();
+    aurora_engine_utils::unwrap_success(approve_result.status).unwrap();
+
+    // Create the token on NEAR
+    let create_result = context
+        .engine
+        .call_evm_contract_with(
+            &user,
+            context.locker.address,
+            context.locker.create_token(context.erc20.address),
+            Wei::zero(),
+        )
+        .await
+        .unwrap();
+    aurora_engine_utils::unwrap_success(create_result.status).unwrap();
+
+    // Confirm token was created using a view call
+    // (if the account was not created the view call would fail because the account does not exist).
+    let token_account = format!(
+        "{}.{}",
+        context.erc20.address.encode(),
+        context.factory.inner.id()
+    )
+        .parse()
+        .unwrap();
+    let balance = nep141_utils::ft_balance_of(&user, &token_account, context.factory.inner.id())
+        .await
+        .unwrap();
+    assert_eq!(balance, 0);
+
+    // Before a deposit will be accepted, the user must do the storage registration
+    let create_result = context
+        .engine
+        .call_evm_contract_with(
+            &user,
+            context.locker.address,
+            context
+                .locker
+                .storage_deposit(context.erc20.address, user.id()),
+            Wei::zero(),
+        )
+        .await
+        .unwrap();
+    aurora_engine_utils::unwrap_success(create_result.status).unwrap();
+
+    // Deposit tokens into locker
+    let deposit_result = context
+        .engine
+        .call_evm_contract_with(
+            &user,
+            context.locker.address,
+            context
+                .locker
+                .deposit(context.erc20.address, user.id(), token_deposit_amount),
+            Wei::zero(),
+        )
+        .await
+        .unwrap();
+    aurora_engine_utils::unwrap_success(deposit_result.status).unwrap();
+
+    // The deposit call to the locker only schedules, need to actually execute it
+    let locker_near_account = format!(
+        "{}.{}",
+        context.locker.address.encode(),
+        context.engine.inner.id()
+    )
+        .parse()
+        .unwrap();
+    let deposit_outcome = user
+        .call(&locker_near_account, "execute_scheduled")
+        .args_json(serde_json::json!({
+            "nonce": "0",
+        }))
+        .max_gas()
+        .transact()
+        .await
+        .unwrap();
+    deposit_outcome.into_result().unwrap();
+
+    // Verify the balance exists on NEAR now
+    let balance = nep141_utils::ft_balance_of(&user, &token_account, user.id())
+        .await
+        .unwrap();
+    assert_eq!(balance, token_deposit_amount);
+
+    // Verify the tokens have been taken from the user in the EVM
+    let evm_token_balance = context
+        .engine
+        .erc20_balance_of(&context.erc20, user_address)
+        .await
+        .unwrap();
+    assert_eq!(
+        evm_token_balance,
+        (token_mint_amount - token_deposit_amount).into()
+    );
+
+    let evm_evil_token_balance = context
+        .engine
+        .erc20_balance_of(&context.erc20, evil_user_address)
+        .await
+        .unwrap();
+    assert_eq!(evm_evil_token_balance, 0.into());
+
+    let fake_withdraw_outcome = fake_token_account
+        .call(context.factory.inner.id(), "on_withdraw")
+        .args_json(serde_json::json!({
+            "receiver_id": evil_user_address.encode(),
+            "amount": token_deposit_amount.to_string(),
+        }))
+        .max_gas().transact().await.unwrap();
+    fake_withdraw_outcome.into_result().unwrap();
+
+    let balance = nep141_utils::ft_balance_of(&user, &token_account, user.id())
+        .await
+        .unwrap();
+    assert_eq!(balance, token_deposit_amount);
+
+    let evm_evil_token_balance = context
+        .engine
+        .erc20_balance_of(&context.erc20, evil_user_address)
+        .await
+        .unwrap();
+    assert_eq!(evm_evil_token_balance, 0.into());
 
     // Withdraw the tokens from NEAR back to the EVM
     let withdraw_outcome = user
