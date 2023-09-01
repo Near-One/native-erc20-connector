@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use crate::{
     acl_utils::{call_access_controlled_method, call_acl_has_role},
     aurora_engine_utils::{self, erc20, erc20::ERC20DeployedAt, repo::AuroraEngineRepo},
@@ -15,8 +14,9 @@ use aurora_engine_types::{
 };
 use borsh::BorshSerialize;
 use near_sdk::serde_json::json;
-use workspaces::AccountId;
 use near_token_common::UpdateFungibleTokenMetadata;
+use std::str::FromStr;
+use workspaces::AccountId;
 
 mod promise_result;
 
@@ -398,10 +398,22 @@ async fn test_evil_withdraw() {
     let user_address = aurora_engine_sdk::types::near_account_to_evm_address(user.id().as_bytes());
 
     let (_, sk) = context.worker.dev_generate().await;
-    let evil_user = context.worker.create_tla(AccountId::from_str("eu.test.near").unwrap(), sk).await.unwrap().unwrap();
-    let evil_user_address = aurora_engine_sdk::types::near_account_to_evm_address(evil_user.id().as_bytes());
+    let evil_user = context
+        .worker
+        .create_tla(AccountId::from_str("eu.test.near").unwrap(), sk)
+        .await
+        .unwrap()
+        .unwrap();
+    let evil_user_address =
+        aurora_engine_sdk::types::near_account_to_evm_address(evil_user.id().as_bytes());
 
-    let fake_token_account = evil_user.create_subaccount(&context.erc20.address.encode()).initial_balance(evil_init_balance).transact().await.unwrap().result;
+    let fake_token_account = evil_user
+        .create_subaccount(&context.erc20.address.encode())
+        .initial_balance(evil_init_balance)
+        .transact()
+        .await
+        .unwrap()
+        .result;
 
     // Mint ERC-20 tokens for user in EVM
     let mint_result = context
@@ -473,8 +485,8 @@ async fn test_evil_withdraw() {
         context.erc20.address.encode(),
         context.factory.inner.id()
     )
-        .parse()
-        .unwrap();
+    .parse()
+    .unwrap();
     let balance = nep141_utils::ft_balance_of(&user, &token_account, context.factory.inner.id())
         .await
         .unwrap();
@@ -516,8 +528,8 @@ async fn test_evil_withdraw() {
         context.locker.address.encode(),
         context.engine.inner.id()
     )
-        .parse()
-        .unwrap();
+    .parse()
+    .unwrap();
     let deposit_outcome = user
         .call(&locker_near_account, "execute_scheduled")
         .args_json(serde_json::json!({
@@ -559,7 +571,10 @@ async fn test_evil_withdraw() {
             "receiver_id": evil_user_address.encode(),
             "amount": token_deposit_amount.to_string(),
         }))
-        .max_gas().transact().await.unwrap();
+        .max_gas()
+        .transact()
+        .await
+        .unwrap();
     fake_withdraw_outcome.into_result().unwrap();
 
     let balance = nep141_utils::ft_balance_of(&user, &token_account, user.id())
